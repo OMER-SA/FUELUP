@@ -46,3 +46,9 @@ README.zip
 build/
 ios/build/
 macos/build/windows/build/
+
+# Firebase service keys
+assets/service_account_key/
+*.json
+
+assets/service_account_key/
