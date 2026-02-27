@@ -1,0 +1,29 @@
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+subprojects {
+    pluginManager.withPlugin('com.android.application') {
+        android.buildFeatures.buildConfig = true
+    }
+    pluginManager.withPlugin('com.android.library') {
+        android.buildFeatures.buildConfig = true
+    }
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
+
+
