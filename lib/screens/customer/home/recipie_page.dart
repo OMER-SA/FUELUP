@@ -150,7 +150,7 @@
 //     //                                   ? Border(
 //     //                                       left: BorderSide(
 //     //                                           color: defaultColors.primaryColor
-//     //                                               .withOpacity(0.3)),
+//     //                                               .withValues(alpha: 0.3)),
 //     //                                     )
 //     //                                   : null,
 //     //                             ),
@@ -422,7 +422,7 @@
 // //                                     ? Border(
 // //                                         left: BorderSide(
 // //                                             color: defaultColors.primaryColor
-// //                                                 .withOpacity(0.3)),
+// //                                                 .withValues(alpha: 0.3)),
 // //                                       )
 // //                                     : null,
 // //                               ),

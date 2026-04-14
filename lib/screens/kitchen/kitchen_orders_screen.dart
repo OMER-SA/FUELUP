@@ -1,8 +1,6 @@
 import 'dart:async';
 
 import 'package:diet_app/components/loading.dart';
-import 'package:diet_app/firebase/db_service.dart';
-import 'package:diet_app/firebase/firebase_messaging.dart';
 import 'package:diet_app/providers/user_provider.dart';
 import 'package:diet_app/utilities/constants.dart';
 import 'package:diet_app/utilities/get_user_location.dart';
@@ -13,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:diet_app/firebase/realtime_database.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:diet_app/utilities/order_status.dart';
 
 class KitchenOrdersScreen extends StatefulWidget {
   const KitchenOrdersScreen({super.key});
@@ -23,10 +22,7 @@ class KitchenOrdersScreen extends StatefulWidget {
 
 class _KitchenOrdersScreenState extends State<KitchenOrdersScreen> {
   final RealDataBaseService _dbService = RealDataBaseService();
-  final DBService databaseService = DBService();
   final DefaultColors defaultColors = DefaultColors();
-  final FirebaseNotificationService firebaseMessagingService =
-      FirebaseNotificationService();
   List<Map<String, dynamic>> _orders = [];
   bool _isLoading = true;
   late StreamSubscription<DatabaseEvent>
@@ -226,7 +222,7 @@ class _KitchenOrdersScreenState extends State<KitchenOrdersScreen> {
               }
             } catch (e) {
               if (mounted) {
-                print("Errror: $e");
+                debugPrint("Errror: $e");
                 showDialog(
                   context: context,
                   builder: (BuildContext context) {
@@ -271,17 +267,8 @@ class _KitchenOrdersScreenState extends State<KitchenOrdersScreen> {
 
   Widget _buildStatusDropdown(
       Map<String, dynamic> order, DefaultColors colors) {
-    // Define status options excluding "Delivered"
-    List<String> statusOptions = [
-      'Order Placed',
-      'Preparing',
-      'Ready',
-      "Delivery in Progress",
-      "Delivered"
-    ];
-
     String currentStatus = order['status'] as String;
-    bool isDelivered = currentStatus == 'Order Recieved';
+    bool isReceived = OrderStatus.isReceived(currentStatus);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
@@ -291,11 +278,11 @@ class _KitchenOrdersScreenState extends State<KitchenOrdersScreen> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: isDelivered ? null : currentStatus,
+          value: isReceived ? null : currentStatus,
           hint: Text(
             currentStatus,
             style: TextStyle(
-                color: isDelivered
+                color: isReceived
                     ? Colors.grey
                     : _getStatusColor(currentStatus, colors)),
           ),
@@ -303,8 +290,8 @@ class _KitchenOrdersScreenState extends State<KitchenOrdersScreen> {
           iconSize: 24,
           elevation: 16,
           style: TextStyle(color: colors.primaryColor),
-          onChanged: isDelivered
-              ? null // Disable dropdown if status is "Delivered"
+          onChanged: isReceived
+              ? null // Disable dropdown if order is received
               : (String? newValue) {
                   if (newValue != null && newValue != currentStatus) {
                     setState(() {
@@ -313,7 +300,7 @@ class _KitchenOrdersScreenState extends State<KitchenOrdersScreen> {
                     _updateOrderStatus(order, newValue);
                   }
                 },
-          items: statusOptions.map<DropdownMenuItem<String>>((String value) {
+          items: OrderStatus.chefStatusOptions.map<DropdownMenuItem<String>>((String value) {
             return DropdownMenuItem<String>(
               value: value,
               child: Row(
@@ -324,7 +311,7 @@ class _KitchenOrdersScreenState extends State<KitchenOrdersScreen> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: _getStatusColor(
-                          isDelivered ? 'Delivered' : value, colors),
+                          isReceived ? OrderStatus.delivered : value, colors),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -343,31 +330,12 @@ class _KitchenOrdersScreenState extends State<KitchenOrdersScreen> {
 
   Future<void> _updateOrderStatus(
       Map<String, dynamic> order, String newStatus) async {
-    print("orderIDas: ${order['customerId']}");
-    final data = await databaseService.getUserFCMToken(order['customerId']);
-    final mealData = await databaseService.getMealById(order['mealId']);
-    String mealName = mealData!['mealName'];
-    String status = order['status'];
-
     try {
       await _dbService.updateOrderStatus(order['orderId'], newStatus);
-      String message = '';
-
-      if (status == 'preparing') {
-        message = "Your order '$mealName' is being prepared.";
-      } else if (status == 'Ready') {
-        message = "Your order '$mealName' is ready.";
-      } else if (status == 'Delivered') {
-        message = "Your order '$mealName' has been arrived.";
-      } else {
-        message = 'The Status of $mealName has been changed to $status';
-      }
-      if (data['fcmToken'] != '') {
-        await FirebaseNotificationService.sendPushMessageToCustomer(
-            body: message, token: data['fcmToken'].toString());
-      }
+      // Push notification to customer is handled automatically by the
+      // 'onOrderStatusChanged' Cloud Function in functions/index.js
     } catch (e) {
-      print('Error updating order status: $e');
+      debugPrint('Error updating order status: $e');
     }
   }
 

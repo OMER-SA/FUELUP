@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:diet_app/firebase/realtime_database.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:diet_app/utilities/order_status.dart';
 
 class OrderScreen extends StatefulWidget {
   const OrderScreen({super.key});
@@ -116,8 +117,8 @@ class _OrderScreenState extends State<OrderScreen> {
     final defaultColors = DefaultColors();
 
     // Split orders into non-delivered and delivered
-    final nonDeliveredOrders = _filterAndSortOrders('Order Recieved', false);
-    final deliveredOrders = _filterAndSortOrders('Order Recieved', true);
+    final nonDeliveredOrders = _filterAndSortOrders(OrderStatus.received, false);
+    final deliveredOrders = _filterAndSortOrders(OrderStatus.received, true);
 
     return _isLoading
         ? const Center(child: LoadingSpinner())
@@ -126,8 +127,7 @@ class _OrderScreenState extends State<OrderScreen> {
             : ListView(
                 children: [
                   ...nonDeliveredOrders
-                      .map((order) => _buildOrderCard(order, defaultColors))
-                      .toList(),
+                      .map((order) => _buildOrderCard(order, defaultColors)),
                   if (deliveredOrders.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(
@@ -136,8 +136,7 @@ class _OrderScreenState extends State<OrderScreen> {
                           height: 1, color: defaultColors.primaryColor),
                     ),
                   ...deliveredOrders
-                      .map((order) => _buildOrderCard(order, defaultColors))
-                      .toList(),
+                      .map((order) => _buildOrderCard(order, defaultColors)),
                 ],
               );
   }
@@ -180,7 +179,7 @@ class _OrderScreenState extends State<OrderScreen> {
   }
 
   Widget _buildOrderCard(Map<String, dynamic> order, DefaultColors colors) {
-    print("Orderrrrr $order");
+    debugPrint("Orderrrrr $order");
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 4,
@@ -222,12 +221,12 @@ class _OrderScreenState extends State<OrderScreen> {
                 ElevatedButton(
                     style: ButtonStyle(
                         backgroundColor: WidgetStatePropertyAll(
-                            order['status'] != 'Order Recieved'
+                            !OrderStatus.isReceived(order['status'])
                                 ? colors.primaryColor
                                 : colors.greyColor)),
-                    onPressed: order['status'] != 'Order Recieved'
+                    onPressed: !OrderStatus.isReceived(order['status'])
                         ? () async {
-                            print("Orderrr::: ${order['status']}");
+                            debugPrint("Orderrr::: ${order['status']}");
                             await confirmDeliveryDialog(context, colors, order);
                           }
                         : () {
@@ -235,8 +234,8 @@ class _OrderScreenState extends State<OrderScreen> {
                                 "The Order Is Already Received",
                                 colors.warningColor);
                           },
-                    child: Text(
-                      "Order Recieved ?",
+                    child: const Text(
+                      "Order Received?",
                       style: TextStyle(color: Colors.white),
                     ))
               ],
@@ -252,19 +251,23 @@ class _OrderScreenState extends State<OrderScreen> {
       width: 100,
       height: 100,
       decoration: BoxDecoration(
-        image: order['mealPicture'] != null
-            ? DecorationImage(
-                image: NetworkImage(order['mealPicture']),
-                fit: BoxFit.cover,
-              )
-            : null,
-        color: colors.primaryColor.withOpacity(0.1),
+        color: colors.primaryColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: colors.primaryColor),
       ),
-      child: order['mealPicture'] == null
-          ? Icon(Icons.fastfood, size: 50, color: colors.primaryColor)
-          : null,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: order['mealPicture'] == null || order['mealPicture'].toString().isEmpty
+            ? Icon(Icons.fastfood, size: 50, color: colors.primaryColor)
+            : Image.network(
+                order['mealPicture'],
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: colors.primaryColor.withValues(alpha: 0.1),
+                  child: const Icon(Icons.restaurant, color: Colors.grey),
+                ),
+              ),
+      ),
     );
   }
 

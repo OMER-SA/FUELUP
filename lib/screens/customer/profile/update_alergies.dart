@@ -82,6 +82,7 @@ class _UpdateAlergiesScreenState extends State<UpdateAlergiesScreen> {
                             selectedAllergies: selectedAllergies,
                             customerId: customerId);
                         setState(() => loading = false);
+                        if (!context.mounted) return;
                         Navigator.of(context).pop();
                       },
                       style: ElevatedButton.styleFrom(

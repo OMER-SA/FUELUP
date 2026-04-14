@@ -49,9 +49,10 @@ Future<void> completeProfileDialog(
               Future<String> userPosition = getUserAddress();
               userPosition
                   .then((value) => {
-                        context
-                            .read<CustomerProvider>()
-                            .setAddress(address: value),
+                        if (context.mounted)
+                          context
+                              .read<CustomerProvider>()
+                              .setAddress(address: value),
                         setState(() {
                           addressLoading = false;
                         })
@@ -185,11 +186,7 @@ Future<void> completeProfileDialog(
                                         backgroundColor: WidgetStatePropertyAll(
                                             defaultColors.primaryColor)),
                                     onPressed: () async {
-                                      print({
-                                        "Heigth": height,
-                                        "weight": weight,
-                                        "age": age
-                                      });
+                                      debugPrint("Height: $height, weight: $weight, age: $age");
                                       if (height == 0 ||
                                           weight == 0 ||
                                           age == 0) {

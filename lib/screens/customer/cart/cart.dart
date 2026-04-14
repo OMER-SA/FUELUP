@@ -120,13 +120,20 @@ class _CartScreenState extends State<CartScreen> {
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
-                      color: defaultColors.primaryColor.withOpacity(0.1),
+                      color: defaultColors.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: defaultColors.primaryColor),
                     ),
                     child: item.mealPicture == null || item.mealPicture!.isEmpty
                         ? const Icon(Icons.fastfood)
-                        : Image.network(item.mealPicture!, fit: BoxFit.cover),
+                        : Image.network(
+                            item.mealPicture!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              color: defaultColors.primaryColor.withValues(alpha: 0.1),
+                              child: const Icon(Icons.restaurant, color: Colors.grey),
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

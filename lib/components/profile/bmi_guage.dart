@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:diet_app/utilities/constants.dart';
+import 'package:go_router/go_router.dart';
 import 'dart:math';
 
 class BmiGuage extends StatelessWidget {
@@ -77,6 +78,17 @@ class BmiGuage extends StatelessWidget {
             _buildBmiCategory('Overweight', '25 - 29.9', Colors.orange),
             _buildBmiCategory('Obese', '≥ 30', Colors.red),
           ],
+        ),
+        const SizedBox(height: 16),
+        Center(
+          child: TextButton.icon(
+            onPressed: () => context.go('/profile/bmiHistory'),
+            icon: Icon(Icons.timeline, color: defaultColors.primaryColor, size: 18),
+            label: Text('View History →',
+                style: TextStyle(
+                    color: defaultColors.primaryColor,
+                    fontWeight: FontWeight.w600)),
+          ),
         ),
       ],
     );

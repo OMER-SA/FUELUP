@@ -210,7 +210,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     },
                     hint: const Text("Plz Select A Desired Role"),
                     borderRadius: BorderRadius.circular(4),
-                    value: _selectedRole,
+                    initialValue: _selectedRole,
                     items: roles,
                     onChanged: (value) {
                       if (value is String) {
@@ -257,20 +257,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                           role: _selectedRole),
                                       context)
                                   .then((value) {
-                                print("Sign IN Valuee: $value");
+                                debugPrint("Sign IN Valuee: $value");
                                 if (context.mounted) {
                                   context.read<UserIdProvider>().setUser(
                                       context: context,
                                       id: value.toString(),
                                       loadingFalse: () {
+                                        if (!mounted) return;
                                         setState(() => loading = false);
                                       });
                                 }
                               }).catchError((error) {
                                 FlutterToast.showToast(
                                     error, defaultColors.redColor);
+                                if (!mounted) return;
                                 setState(() => loading = false);
                               }).whenComplete(() {
+                                if (!mounted) return;
                                 setState(() {
                                   loading = false;
                                 });

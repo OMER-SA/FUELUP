@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>AIzaSyCdssW6d3oz0QdoCacClPIHKiQ034uJ8MA</string>
+	<string>AIzaSyBlY-ZDzqwI8wJyiE3oqeTrlmMTT2NFP-g</string>
 	<key>GCM_SENDER_ID</key>
-	<string>540020632607</string>
+	<string>457867932958</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
 	<string>com.example.dietApp</string>
 	<key>PROJECT_ID</key>
-	<string>dietapp-ee0c0</string>
+	<string>fuelup-2e090</string>
 	<key>STORAGE_BUCKET</key>
-	<string>dietapp-ee0c0.appspot.com</string>
+	<string>fuelup-2e090.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,8 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:540020632607:ios:9bdd6b3f438414f73c792a</string>
-	<key>DATABASE_URL</key>
-	<string>https://dietapp-ee0c0-default-rtdb.firebaseio.com</string>
+	<string>1:457867932958:ios:7ce6d06c6ef1342591850f</string>
 </dict>
 </plist>

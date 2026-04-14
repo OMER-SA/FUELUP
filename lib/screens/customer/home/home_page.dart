@@ -1,8 +1,17 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
 import 'package:diet_app/components/loading.dart';
 import 'package:diet_app/firebase/db_service.dart';
+import 'package:diet_app/models/mood_types.dart';
 import 'package:diet_app/providers/customer_provider.dart';
+import 'package:diet_app/utilities/bmi_meal_filter.dart';
 import 'package:diet_app/utilities/constants.dart';
+import 'package:diet_app/utilities/mood_meal_filter.dart';
+import 'package:diet_app/utilities/voice_mood_detector.dart';
+import 'package:diet_app/widgets/mood_onboarding_tooltip.dart';
+import 'package:diet_app/widgets/mood_picker_sheet.dart';
+import 'package:diet_app/widgets/voice_mood_button.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -22,10 +31,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, List<Map<String, dynamic>>> _groupedMeals = {};
   bool _isLoading = true;
   bool _mounted = true;
+  late final VoiceMoodDetector _moodDetector;
 
   @override
   void initState() {
     super.initState();
+    _moodDetector = VoiceMoodDetector();
+    _warmMoodDetector();
     _loadData();
   }
 
@@ -33,6 +45,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _mounted = false;
     super.dispose();
+  }
+
+  Future<void> _warmMoodDetector() async {
+    await _moodDetector.load();
   }
 
   Future<void> _loadData() async {
@@ -97,15 +113,21 @@ class _HomeScreenState extends State<HomeScreen> {
       return Center(child: LoadingSpinner());
     }
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildCategoriesSection(),
-          const SizedBox(height: 20),
-          _buildKitchenMealsSection(),
-        ],
-      ),
+    return Stack(
+      children: [
+        SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildRecommendedSection(),
+              _buildCategoriesSection(),
+              const SizedBox(height: 20),
+              _buildKitchenMealsSection(),
+            ],
+          ),
+        ),
+        const MoodOnboardingTooltip(),
+      ],
     );
   }
 
@@ -154,12 +176,12 @@ class _HomeScreenState extends State<HomeScreen> {
           decoration: BoxDecoration(
             color: isSelected
                 ? _defaultColor.primaryColor
-                : _defaultColor.primaryColor.withOpacity(0.1),
+                : _defaultColor.primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(4),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: _defaultColor.primaryColor.withOpacity(0.3),
+                      color: _defaultColor.primaryColor.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     )
@@ -338,7 +360,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       aspectRatio: 16 / 9,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: _defaultColor.primaryColor.withOpacity(0.1),
+                          color:
+                              _defaultColor.primaryColor.withValues(alpha: 0.1),
                           borderRadius: const BorderRadius.vertical(
                               top: Radius.circular(12)),
                         ),
@@ -350,6 +373,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Image.network(
                                   meal['mealPicture'],
                                   fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => Container(
+                                    color: _defaultColor.primaryColor.withValues(alpha: 0.1),
+                                    child: const Icon(Icons.restaurant, color: Colors.grey),
+                                  ),
                                 ),
                               ),
                       ),
@@ -366,7 +393,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             borderRadius: BorderRadius.circular(6),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
+                                color: Colors.black.withValues(alpha: 0.2),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
@@ -422,6 +449,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 12),
                       ),
+                      if (meal['calories'] != null && meal['calories'] > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Row(
+                            children: [
+                              Icon(Icons.local_fire_department,
+                                  color: Colors.orange[600], size: 14),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${meal['calories']} kcal',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.orange[700],
+                                    fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -431,5 +476,470 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildRecommendedSection() {
+    final customerProvider = context.watch<CustomerProvider>();
+    final bmi = customerProvider.calculateBmi();
+    final currentWeight = customerProvider.getWeight?.toDouble() ?? 0.0;
+    final targetWeight = customerProvider.getTargetWeight ?? currentWeight;
+    final goalCalories = customerProvider.goalCalories ?? _fallbackGoalCalories(bmi);
+
+    if (bmi <= 0 || _groupedMeals.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final allMeals = _groupedMeals.values
+        .expand((meals) => meals)
+        .whereType<Map<String, dynamic>>()
+        .toList();
+
+    if (allMeals.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final currentMoodType = customerProvider.currentMoodType;
+    final recommended = currentMoodType == null
+        ? MoodMealFilter.rankMeals(
+            meals: allMeals,
+        mood: customerProvider.currentMood ?? MoodType.neutral,
+            bmi: bmi,
+            currentWeight: currentWeight,
+            targetWeight: targetWeight,
+            goalCalories: goalCalories,
+            allergies: customerProvider.allergies,
+            dietaryPrefs: customerProvider.dietaryPreferences,
+          ).take(5).toList(growable: false)
+        : MoodMealFilter.getRecommendedMeals(
+            meals: allMeals,
+            userMood: currentMoodType.name,
+          ).take(5).toList(growable: false);
+
+    if (recommended.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final label = BmiMealFilter.getRecommendationLabel(
+      bmi,
+      currentWeight: currentWeight,
+      targetWeight: targetWeight,
+    );
+    final currentMood = currentMoodType;
+    final moodColor = Color(
+      MoodTypeConfig.colorValues[currentMood] ??
+        MoodTypeConfig.colorValues[MoodType.neutral]!,
+    );
+    final moodLabel = MoodTypeConfig.displayLabels[currentMood] ??
+      (customerProvider.currentMoodType?.name ?? 'neutral');
+    final recommendedTitle = currentMood == null
+        ? 'Recommended for you'
+        : 'Recommended for your $moodLabel mood';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'YOUR MOOD TODAY',
+                      style: TextStyle(
+                        fontSize: 12,
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      recommendedTitle,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: _defaultColor.richBlackColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      label,
+                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.push('/profile/dietaryPreferences'),
+                child: const Text('Set food preferences'),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: VoiceMoodButton(
+            detector: _moodDetector,
+            onMoodDetected: (mood, confidence, source) {
+              if (mood == null) {
+                return;
+              }
+              unawaited(
+                customerProvider.setUserMood(
+                  mood,
+                  confidence: confidence,
+                  source: source,
+                ),
+              );
+            },
+          ),
+        ),
+        if (currentMood != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () async {
+                final selectedMood = await showMoodPickerSheet(
+                  context,
+                  selectedMood: currentMood,
+                );
+                if (!mounted || selectedMood == null) {
+                  return;
+                }
+
+                await context.read<CustomerProvider>().setUserMood(
+                  selectedMood,
+                  source: MoodSource.manual,
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: moodColor.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: moodColor.withValues(alpha: 0.30),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: moodColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  moodLabel,
+                                  style: TextStyle(
+                                    color: moodColor,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: (customerProvider.moodSource == MoodSource.voice)
+                                      ? Colors.purple.withValues(alpha: 0.10)
+                                      : Colors.grey.withValues(alpha: 0.10),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      customerProvider.moodSource == MoodSource.voice
+                                          ? Icons.mic
+                                          : Icons.touch_app,
+                                      size: 10,
+                                      color: customerProvider.moodSource == MoodSource.voice
+                                          ? Colors.purple
+                                          : Colors.grey,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      customerProvider.moodSource == MoodSource.voice
+                                          ? 'Voice'
+                                          : 'Manual',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: customerProvider.moodSource == MoodSource.voice
+                                            ? Colors.purple
+                                            : Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _moodMealCopy(currentMood),
+                            style: TextStyle(
+                              color: Colors.grey[700],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        unawaited(
+                          context.read<CustomerProvider>().clearMood(),
+                        );
+                      },
+                      child: Icon(Icons.close, size: 16, color: moodColor),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 280,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                top: 92,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: recommended.length,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemBuilder: (context, index) {
+                    final meal = recommended[index];
+                    final mealName =
+                        (meal['mealName']?.toString().trim().isNotEmpty ?? false)
+                            ? meal['mealName'].toString().trim()
+                            : 'Meal';
+                    final price = meal['price']?.toString() ?? '--';
+                    final imageUrl = meal['mealPicture']?.toString();
+                    final calories = meal['calories'] is num
+                        ? (meal['calories'] as num).round()
+                        : int.tryParse(meal['calories']?.toString() ?? '');
+                    final badge = meal['_moodBadge']?.toString() ??
+                        meal['goalBadge']?.toString() ??
+                        BmiMealFilter.getMealBadge(bmi, calories) ??
+                      MoodTypeConfig.badgeLabels[MoodType.neutral];
+                    final badgeColorValue =
+                        (meal['_moodColor'] as num?)?.toInt() ??
+                        MoodTypeConfig.colorValues[currentMood] ??
+                        MoodTypeConfig.colorValues[MoodType.neutral]!;
+                    final badgeColor = Color(badgeColorValue);
+
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: SizedBox(
+                        width: 180,
+                        child: InkWell(
+                          onTap: () => context.go('/home/meal-detail', extra: meal),
+                          child: Card(
+                            elevation: 3,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Stack(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(12),
+                                      ),
+                                      child: AspectRatio(
+                                        aspectRatio: 16 / 9,
+                                        child: imageUrl != null && imageUrl.isNotEmpty
+                                            ? Image.network(
+                                                imageUrl,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) => Container(
+                                                  color: _defaultColor.primaryColor
+                                                      .withValues(alpha: 0.1),
+                                                  child: const Icon(Icons.restaurant, color: Colors.grey),
+                                                ),
+                                              )
+                                            : Container(
+                                                color: _defaultColor.primaryColor
+                                                    .withValues(alpha: 0.1),
+                                                child: const Icon(Icons.fastfood),
+                                              ),
+                                      ),
+                                    ),
+                                    if (badge != null)
+                                      Positioned(
+                                        top: 6,
+                                        left: 6,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(6),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: 0.08),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Container(
+                                                width: 8,
+                                                height: 8,
+                                                decoration: BoxDecoration(
+                                                  color: badgeColor,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text(
+                                                badge,
+                                                style: TextStyle(
+                                                  color: badgeColor,
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    if (meal['_allFiltered'] == true)
+                                      Positioned(
+                                        bottom: 6,
+                                        left: 6,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.65),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Text(
+                                            'Preferences too strict',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        mealName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            '$price Rs',
+                                            style: TextStyle(
+                                              color: _defaultColor.primaryColor,
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          if (calories != null)
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.local_fire_department,
+                                                  size: 12,
+                                                  color: Colors.orange[600],
+                                                ),
+                                                Text(
+                                                  '$calories kcal',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.orange[700],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  String _moodMealCopy(MoodType mood) {
+    switch (mood) {
+      case MoodType.unpleasant:
+        return 'Showing meals to calm your mind';
+      case MoodType.surprise:
+        return 'Showing meals to lift your energy';
+      case MoodType.happy:
+        return 'Showing balanced meals for your great mood';
+      case MoodType.neutral:
+        return 'Showing meals optimised for your goals';
+    }
+  }
+
+  double _fallbackGoalCalories(double bmi) {
+    final range = BmiMealFilter.getRecommendedCalorieRange(bmi);
+    return ((range['min']! + range['max']!) / 2) * 3.0;
   }
 }

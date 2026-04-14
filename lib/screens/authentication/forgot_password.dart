@@ -107,20 +107,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     String email = _emailController.text.trim();
     if (email.isEmpty) {
       FlutterToast.showToast("Please enter your email first", Colors.red);
+      setState(() => loading = false);
       return;
     }
     try {
-      await _authentication.sendPasswordResetEmail(email).then((value) {
+      final value = await _authentication.sendPasswordResetEmail(email);
+      if (mounted) {
         emailSentForResetPasswordDialog(context, value);
-      }).catchError((value) {
-        FlutterToast.showToast(value, defaultColors.redColor);
-      }).whenComplete(() {
-        setState(() {
-          loading = false;
-        });
-      });
+      }
     } catch (e) {
-      FlutterToast.showToast(e.toString(), Colors.red);
+      FlutterToast.showToast(e.toString(), defaultColors.redColor);
     } finally {
       setState(() {
         loading = false;

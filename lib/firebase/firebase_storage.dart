@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
@@ -17,7 +18,7 @@ class FirebaseDataStorage {
 
       return downloadURL;
     } catch (e) {
-      print('Error uploading profile picture: $e');
+      debugPrint('Error uploading profile picture: $e');
       rethrow;
     }
   }
@@ -34,7 +35,7 @@ class FirebaseDataStorage {
 
       return downloadURL;
     } catch (e) {
-      print('Error uploading meal picture: $e');
+      debugPrint('Error uploading meal picture: $e');
       rethrow;
     }
   }

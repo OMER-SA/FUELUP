@@ -52,3 +52,8 @@ assets/service_account_key/
 *.json
 
 assets/service_account_key/
+# Added by code-review-graph
+.code-review-graph/
+
+# Local build artifacts (never commit APK binaries)
+*.apk

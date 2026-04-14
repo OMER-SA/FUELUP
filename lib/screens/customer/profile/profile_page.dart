@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:diet_app/components/loading.dart';
 import 'package:diet_app/components/profile/bmi_guage.dart';
 import 'package:diet_app/components/profile/profile_card.dart';
@@ -35,7 +37,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _pickAndUploadImage() async {
     if (_isPickerActive) {
-      print('Image picker is already active');
+      debugPrint('Image picker is already active');
       return;
     }
 
@@ -48,11 +50,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
       if (image == null) {
-        print('No image selected');
+        debugPrint('No image selected');
         return;
       }
       imgLoading = true;
       XFile imageFile = XFile(image.path);
+      if (!mounted) return;
       String customerId = context.read<UserIdProvider>().getUuid.toString();
 
       String downloadURL = await _firebaseStorage.uploadProfilePicture(
@@ -65,14 +68,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       setState(() {});
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile picture updated successfully')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile picture updated successfully')),
+        );
+      }
     } catch (e) {
-      print('Error uploading image: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to update profile picture')),
-      );
+      debugPrint('Error uploading image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update profile picture')),
+        );
+      }
     } finally {
       setState(() {
         _isPickerActive = false;
@@ -262,7 +269,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     horizontal: 9, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: defaultColors.primaryColor
-                                      .withOpacity(0.1),
+                                      .withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -270,6 +277,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                   ],
                 ),
+              ),
+            ),
+            SizedBox(height: 16),
+
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                leading: Icon(Icons.restaurant_menu,
+                    color: defaultColors.primaryColor, size: 32),
+                title: const Text('Food Preferences',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle:
+                    const Text('Manage allergies and dietary choices'),
+                trailing: Icon(Icons.chevron_right,
+                    color: defaultColors.primaryColor),
+                onTap: () => context.go('/profile/dietaryPreferences'),
               ),
             ),
             SizedBox(height: 16),
@@ -285,6 +310,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             SizedBox(height: 16),
+
+            // My Goal Card
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('My Goal',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 18)),
+                        TextButton.icon(
+                          onPressed: () =>
+                              context.go('/profile/goalSetting'),
+                          icon: Icon(Icons.flag,
+                              color: defaultColors.primaryColor, size: 18),
+                          label: Text(
+                              customerProvider.getTargetWeight != null
+                                  ? 'Edit Goal'
+                                  : 'Set Goal',
+                              style: TextStyle(
+                                  color: defaultColors.primaryColor)),
+                        ),
+                      ],
+                    ),
+                    if (customerProvider.getTargetWeight != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildInfoColumn(
+                              'Current',
+                              '${customerProvider.getWeight ?? 0} kg',
+                              Icons.monitor_weight),
+                          Icon(Icons.arrow_forward,
+                              color: defaultColors.primaryColor),
+                          _buildInfoColumn(
+                              'Target',
+                              '${customerProvider.getTargetWeight!.toStringAsFixed(1)} kg',
+                              Icons.flag),
+                        ],
+                      ),
+                    ] else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text('Set a target weight to track progress',
+                            style: TextStyle(color: Colors.grey[500])),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: 16),
+
+            // Daily Calories Card
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                leading: Icon(Icons.local_fire_department,
+                    color: defaultColors.primaryColor, size: 32),
+                title: const Text('Calorie Calculator',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Calculate your daily calorie needs'),
+                trailing: Icon(Icons.chevron_right,
+                    color: defaultColors.primaryColor),
+                onTap: () => context.go('/profile/calorieCalculator'),
+              ),
+            ),
+            SizedBox(height: 16),
+
 
             Container(
               child: !loading
@@ -353,11 +455,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       await context.read<UserIdProvider>().logout();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error logging out: $e')),
-      );
+      if (mounted) {
+        developer.log('⚠️  PROFILE_LOGOUT_IGNORED: error=$e');
+      }
     } finally {
-      setState(() => loading = false);
+      if (mounted) {
+        setState(() => loading = false);
+        developer.log('✅ LOGOUT_NAVIGATION_DONE: route=/auth/login');
+        context.go('/auth/login');
+      }
     }
   }
 }

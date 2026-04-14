@@ -6,11 +6,13 @@ import 'package:diet_app/providers/user_provider.dart';
 import 'package:diet_app/utilities/constants.dart';
 import 'package:diet_app/providers/cart_provider.dart';
 import 'package:diet_app/utilities/get_app_bar_title.dart';
+import 'package:diet_app/utilities/order_status.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:diet_app/firebase/realtime_database.dart';
 
 class BottomNavigationBarPage extends StatefulWidget {
@@ -30,6 +32,7 @@ class _BottomNavigationBarPageState extends State<BottomNavigationBarPage> {
   DefaultColors defaultColors = DefaultColors();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isInitialized = false;
+  String? _loadedForUserId;
   String address = '';
 
   final Map<String, String> routeTitles = {
@@ -41,6 +44,7 @@ class _BottomNavigationBarPageState extends State<BottomNavigationBarPage> {
     '/profile/updatePhone': 'Update Phone',
     '/profile/updateAddress': 'Update Address',
     '/profile/updateAlergies': 'Update Allergies',
+    '/profile/dietaryPreferences': 'Food Preferences',
     '/home/meal-detail': 'Meal Details',
     '/orders': 'Your Orders',
   };
@@ -59,12 +63,12 @@ class _BottomNavigationBarPageState extends State<BottomNavigationBarPage> {
   }
 
   Future<void> _fetchNotificationCount() async {
-    final userId = context.read<UserIdProvider>().getUuid;
+    final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId != null) {
       List<String> orderStatus = [];
       final notifications = await _dbService.fetchOrdersByUserId(userId);
       for (var element in notifications) {
-        if (element['status'] != 'Order Recieved') {
+        if (element['status'] != OrderStatus.received) {
           orderStatus.add(element['status']);
         }
       }
@@ -75,7 +79,7 @@ class _BottomNavigationBarPageState extends State<BottomNavigationBarPage> {
   }
 
   void _setupNotificationListener() {
-    final userId = context.read<UserIdProvider>().getUuid;
+    final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId != null) {
       _notificationSubscription = FirebaseDatabase.instance
           .ref()
@@ -89,7 +93,7 @@ class _BottomNavigationBarPageState extends State<BottomNavigationBarPage> {
           final orders =
               (event.snapshot.value as Map<dynamic, dynamic>).values.toList();
           for (var element in orders) {
-            if (element['status'] != 'Order Recieved') {
+            if (element['status'] != OrderStatus.received) {
               orderStatus.add(element['status']);
             }
           }
@@ -108,15 +112,25 @@ class _BottomNavigationBarPageState extends State<BottomNavigationBarPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_isInitialized) {
-      _loadCustomerData();
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    final shouldLoad = !_isInitialized ||
+        ((currentUserId ?? '').isNotEmpty && _loadedForUserId != currentUserId);
+    if (shouldLoad) {
       _isInitialized = true;
+      _loadCustomerData();
     }
   }
 
   Future<void> _loadCustomerData() async {
     final UserIdProvider user = context.read<UserIdProvider>();
-    final customerData = await dbService.getCustomer(user.getUuid.toString());
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if ((uid ?? '').isEmpty) {
+      return;
+    }
+    // Hydration happens after route entry; routing itself must stay FirebaseAuth-only.
+    user.setUid(uid.toString());
+    _loadedForUserId = uid;
+    final customerData = await dbService.getCustomer(uid.toString());
 
     if (customerData != null) {
       if (mounted) {
@@ -132,7 +146,11 @@ class _BottomNavigationBarPageState extends State<BottomNavigationBarPage> {
           profilePicture: customerData['profilePicture'],
           weight: customerData['weight'] ?? 0,
           fcmToken: user.getFcmToken,
-          height: customerData['height'] ?? 0,
+          height: (customerData['height'] as num?)?.toDouble() ?? 0.0,
+          targetWeight: (customerData['targetWeight'] as num?)?.toDouble(),
+          activityLevel: customerData['activityLevel'],
+          gender: customerData['gender'],
+          customerId: uid.toString(),
         );
 
         if (!customerProvider.customerHasData) {
@@ -234,7 +252,7 @@ class _BottomNavigationBarPageState extends State<BottomNavigationBarPage> {
                       alignment: Alignment.center,
                       padding: const EdgeInsets.all(4.5),
                       decoration: BoxDecoration(
-                          color: defaultColors.redColor.withOpacity(0.8),
+                          color: defaultColors.redColor.withValues(alpha: 0.8),
                           shape: BoxShape.circle),
                       child: Text(
                         cartItemsLen < 10 ? cartItemsLen.toString() : '9+',
@@ -273,7 +291,7 @@ class _BottomNavigationBarPageState extends State<BottomNavigationBarPage> {
                       alignment: Alignment.center,
                       padding: const EdgeInsets.all(4.5),
                       decoration: BoxDecoration(
-                          color: defaultColors.redColor.withOpacity(0.8),
+                          color: defaultColors.redColor.withValues(alpha: 0.8),
                           shape: BoxShape.circle),
                       child: Text(
                         _notificationCount < 10

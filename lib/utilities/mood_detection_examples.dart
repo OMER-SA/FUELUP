@@ -3,7 +3,6 @@
 // This file shows how to use the tag-based mood detection system
 // in your Flutter app for meal recommendations.
 
-import 'package:diet_app/models/mood.dart';
 import 'package:diet_app/utilities/tag_based_mood_detector.dart';
 import 'package:diet_app/utilities/voice_mood_detector.dart';
 
@@ -22,7 +21,10 @@ void example1_simpleMoodDetection() {
   };
 
   // Detect mood from tags
-  final mood = TagBasedMoodDetector.detectMoodFromTags(meal['tags'] ?? []);
+  final mealTags = List<dynamic>.from(
+    (meal['tags'] as List?) ?? const <dynamic>[],
+  );
+  final mood = TagBasedMoodDetector.detectMoodFromTags(mealTags);
 
   print('Meal: ${meal['mealName']}');
   print('Tags: ${meal['tags']}');
@@ -70,7 +72,9 @@ void example3_detailedAnalysis() {
   print('Normalized: ${analysis['normalizedTags']}');
   print('Scores: ${analysis['scores']}');
   print('Detected Mood: ${analysis['detectedMood']}');
-  print('Confidence: ${(analysis['confidence'] as double * 100).toStringAsFixed(1)}%');
+  print(
+    'Confidence: ${((analysis['confidence'] as double) * 100).toStringAsFixed(1)}%',
+  );
   print('Max Score: ${analysis['maxScore']}');
   print('✅ RESULT: User is in tired mood (heavy meal detected).\n');
 }
@@ -143,7 +147,9 @@ void example5_realMealScenarios() {
   for (final scenario in scenarios) {
     print(scenario.name);
     final (mood, confidence) =
-        TagBasedMoodDetector.detectMoodWithConfidence(scenario.tags as List);
+        TagBasedMoodDetector.detectMoodWithConfidence(
+          List<dynamic>.from(scenario.tags),
+        );
     print('  Inferred Mood: $mood (${(confidence * 100).toStringAsFixed(0)}%)');
     print('  Tags: ${scenario.tags}');
     print('  ${scenario.recommendation}');
@@ -179,14 +185,18 @@ void example6_integrationWithFiltering() {
 
   print('Step 1: User selects a meal (Grilled Chicken)');
   final selectedMeal = meals[0];
-  final inferredMood = TagBasedMoodDetector.detectMoodFromTags(selectedMeal['tags'] ?? []);
+  final inferredMood = TagBasedMoodDetector.detectMoodFromTags(
+    List<dynamic>.from((selectedMeal['tags'] as List?) ?? const <dynamic>[]),
+  );
   print('  Inferred Mood: $inferredMood');
 
   print('\nStep 2: Filter meals by inferred mood');
   print('  Recommended meals for $inferredMood mood:');
 
   for (final meal in meals) {
-    final moodScore = TagBasedMoodDetector.getMoodScoresFromTags(meal['tags'] ?? []);
+    final moodScore = TagBasedMoodDetector.getMoodScoresFromTags(
+      List<dynamic>.from((meal['tags'] as List?) ?? const <dynamic>[]),
+    );
     final scores = moodScore.entries
         .where((e) => e.value > 0)
         .map((e) => '${e.key}: ${e.value}')
@@ -216,7 +226,9 @@ void example7_errorHandling() {
 
   print('Case 3: Null values in tags (should be filtered)');
   final (mood3, confidence3) =
-      TagBasedMoodDetector.detectMoodWithConfidence([null, '', 'healthy', null] as List);
+      TagBasedMoodDetector.detectMoodWithConfidence(
+        List<dynamic>.from([null, '', 'healthy', null]),
+      );
   print('  Result: $mood3 (confidence: ${(confidence3 * 100).toStringAsFixed(0)}%)');
   print('  ✅ PASS\n');
 

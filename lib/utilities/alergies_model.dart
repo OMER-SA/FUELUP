@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:diet_app/utilities/constants.dart';
@@ -16,24 +16,24 @@ class AllergyPredictor {
         'assets/alergy_model/allergies_model_ann.tflite',
         options: InterpreterOptions()..threads = 1,
       );
-      print('Model loaded successfully');
+      debugPrint('Model loaded successfully');
     } catch (e) {
-      print('Error loading TFLite model: $e');
+      debugPrint('Error loading TFLite model: $e');
     }
   }
 
   Future<List<String>> predict(List<String> userAllergies, double bmi) async {
     if (_interpreter == null) {
-      print("Interpreter is not initialized.");
+      debugPrint("Interpreter is not initialized.");
       return [];
     }
 
     try {
       // Prepare input with the specified structure
       List<double> input = _prepareInput(userAllergies, bmi);
-      print("input: ${input}");
+      debugPrint("input: $input");
       Float32List modelInput = Float32List.fromList(input);
-      print("input: ${modelInput}");
+      debugPrint("input: $modelInput");
 
       // Define the output shape based on model expectations
       var output = List.generate(
@@ -42,12 +42,12 @@ class AllergyPredictor {
       // Run the model
       _interpreter?.run(modelInput, output);
 
-      print("Raw model Output ${output}");
+      debugPrint("Raw model Output $output");
       // Decode the model output
       return _interpretAllergies(
           output[1], userAllergies.isEmpty ? 1 : 0.5, userAllergies);
     } catch (e) {
-      print("Error during prediction: $e");
+      debugPrint("Error during prediction: $e");
       return [];
     }
   }

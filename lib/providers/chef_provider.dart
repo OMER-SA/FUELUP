@@ -87,7 +87,7 @@ class CheffProvider with ChangeNotifier {
       _profilePicture = imageUrl;
       notifyListeners();
     } catch (e) {
-      print('Error updating chef profile picture: $e');
+      debugPrint('Error updating chef profile picture: $e');
       rethrow;
     }
   }
@@ -98,7 +98,7 @@ class CheffProvider with ChangeNotifier {
     required String mealId,
   }) async {
     try {
-      print('Uploading meal picture...');
+      debugPrint('Uploading meal picture...');
       String downloadURL =
           await dbService.uploadMealPicture(imageFile, cheffId);
       await dbService.updateMealPicture(mealId: mealId, imageUrl: downloadURL);
@@ -106,7 +106,7 @@ class CheffProvider with ChangeNotifier {
       notifyListeners();
       return downloadURL;
     } catch (e) {
-      print('Error uploading and updating meal picture: $e');
+      debugPrint('Error uploading and updating meal picture: $e');
       rethrow;
     }
   }
@@ -114,13 +114,13 @@ class CheffProvider with ChangeNotifier {
   Future<void> updateProfilePicturePathToDB(
       String imageUrl, String customerId) async {
     try {
-      await dbService.updateCheffProfilePicture(
+      await dbService.updateChefProfilePicture(
           cheffId: customerId, imageUrl: imageUrl);
-      print('Image URL::::::::::::::::::::::::::::::: $imageUrl');
+      debugPrint('Image URL::::::::::::::::::::::::::::::: $imageUrl');
       _profilePicture = imageUrl;
       notifyListeners();
     } catch (e) {
-      print('Error updating profile picture: $e');
+      debugPrint('Error updating profile picture: $e');
       rethrow;
     }
   }

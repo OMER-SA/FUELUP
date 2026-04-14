@@ -91,7 +91,7 @@ class _KitchenHomeScreenState extends State<KitchenHomeScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 32, 22, 16),
       decoration: BoxDecoration(
-        color: colors.primaryColor.withOpacity(0.1),
+        color: colors.primaryColor.withValues(alpha: 0.1),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(20),
           bottomRight: Radius.circular(20),
@@ -138,7 +138,7 @@ class _KitchenHomeScreenState extends State<KitchenHomeScreen> {
                   style: TextStyle(color: colors.primaryColor),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: colors.primaryColor.withOpacity(0.1),
+                  backgroundColor: colors.primaryColor.withValues(alpha: 0.1),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
@@ -165,7 +165,7 @@ class _KitchenHomeScreenState extends State<KitchenHomeScreen> {
                   const BorderRadius.vertical(top: Radius.circular(12)),
               child: Container(
                 height: 100,
-                color: colors.secondaryColor.withOpacity(0.1),
+                color: colors.secondaryColor.withValues(alpha: 0.1),
                 alignment: Alignment.center,
                 child: meal['mealPicture'] != null
                     ? Image.network(

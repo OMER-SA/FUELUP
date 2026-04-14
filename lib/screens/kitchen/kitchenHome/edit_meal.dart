@@ -34,7 +34,7 @@ class _EditMealScreenState extends State<EditMealScreen> {
   @override
   void initState() {
     super.initState();
-    print("widget.meal: ${widget.meal}");
+    debugPrint("widget.meal: ${widget.meal}");
     _nameController = TextEditingController(text: widget.meal['mealName']);
     _descriptionController =
         TextEditingController(text: widget.meal['discription'] ?? '');
@@ -47,6 +47,7 @@ class _EditMealScreenState extends State<EditMealScreen> {
       recpeControllers.add({
         "measurement": TextEditingController(text: item['measurement']),
         "ingredient": TextEditingController(text: item['ingredient']),
+        "calories": TextEditingController(text: (item['calories'] ?? 0).toString()),
         "isChangeAble": item['isChangeAble'],
       });
     }
@@ -61,6 +62,7 @@ class _EditMealScreenState extends State<EditMealScreen> {
     for (var controller in recpeControllers) {
       controller['measurement'].dispose();
       controller['ingredient'].dispose();
+      controller['calories'].dispose();
     }
     super.dispose();
   }
@@ -114,10 +116,10 @@ class _EditMealScreenState extends State<EditMealScreen> {
     return Container(
       padding: const EdgeInsets.all(12.0),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.4),
+        color: Colors.white.withValues(alpha: 0.4),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
+            color: Colors.grey.withValues(alpha: 0.3),
             spreadRadius: 1,
             blurRadius: 5,
             offset: Offset(0, -3),
@@ -187,6 +189,7 @@ class _EditMealScreenState extends State<EditMealScreen> {
               recpeControllers.add({
                 "measurement": TextEditingController(),
                 "ingredient": TextEditingController(),
+                "calories": TextEditingController(),
                 "isChangeAble": true
               });
             });
@@ -243,7 +246,7 @@ class _EditMealScreenState extends State<EditMealScreen> {
                           Transform.scale(
                             scale: 0.8,
                             child: Switch(
-                              activeColor: defaultColors.lightGreenColor,
+                              activeThumbColor: defaultColors.lightGreenColor,
                               value: controller['isChangeAble'],
                               onChanged: (bool value) {
                                 setState(() {
@@ -269,6 +272,18 @@ class _EditMealScreenState extends State<EditMealScreen> {
                   decoration: const InputDecoration(
                     label: Text("Measurement"),
                     hintText: "Enter Quantity of Ingredient",
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: controller['calories'],
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  decoration: const InputDecoration(
+                    label: Text("Calories (kcal)"),
+                    hintText: "Enter calories",
                   ),
                 ),
               ],
@@ -314,10 +329,10 @@ class _EditMealScreenState extends State<EditMealScreen> {
           height: 150,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: defaultColors.secondaryColor.withOpacity(0.1),
+            color: defaultColors.secondaryColor.withValues(alpha: 0.1),
             border: Border.all(
               width: 2,
-              color: defaultColors.primaryColor.withOpacity(0.5),
+              color: defaultColors.primaryColor.withValues(alpha: 0.5),
             ),
           ),
           child: ClipOval(
@@ -396,7 +411,7 @@ class _EditMealScreenState extends State<EditMealScreen> {
                   "PKR",
                   style: TextStyle(
                     fontWeight: FontWeight.w300,
-                    color: defaultColors.richBlackColor.withOpacity(0.5),
+                    color: defaultColors.richBlackColor.withValues(alpha: 0.5),
                   ),
                 ),
               ),
@@ -423,7 +438,7 @@ class _EditMealScreenState extends State<EditMealScreen> {
       },
       hint: const Text("Plz! select a category of food"),
       borderRadius: BorderRadius.circular(4),
-      value: _selectedCategory,
+      initialValue: _selectedCategory,
       items: mealCategories,
       onChanged: (value) {
         if (value is String) {
@@ -457,13 +472,17 @@ class _EditMealScreenState extends State<EditMealScreen> {
           .map((controller) => {
                 'measurement': controller['measurement'].text,
                 'ingredient': controller['ingredient'].text,
+                'calories': int.tryParse(controller['calories'].text) ?? 0,
                 'isChangeAble': controller['isChangeAble'],
               })
           .toList(),
+      'calories': recpeControllers.fold<int>(0, (sum, c) {
+        return sum + (int.tryParse(c['calories'].text) ?? 0);
+      }),
       if (imageUrl != null) 'mealPicture': imageUrl,
     };
 
-    print("Updated Meal: $updatedMeal");
+    debugPrint("Updated Meal: $updatedMeal");
 
     await dbService.updateKitchenMeal(updatedMeal);
     setState(() {

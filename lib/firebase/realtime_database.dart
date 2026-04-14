@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 class RealDataBaseService {
@@ -47,7 +48,7 @@ class RealDataBaseService {
 
       return orderId;
     } catch (e) {
-      print('Error while adding order: $e');
+      debugPrint('Error while adding order: $e');
       return "Error while adding order:";
     }
   }
@@ -58,11 +59,10 @@ class RealDataBaseService {
       required String status}) async {
     try {
       await _databaseReference
-          .child(customerId)
           .child(orderId)
           .update({'status': status});
     } catch (e) {
-      print('Error while updating order: $e');
+      debugPrint('Error while updating order: $e');
       rethrow;
     }
   }
@@ -71,7 +71,7 @@ class RealDataBaseService {
     try {
       await _databaseReference.child(orderId).update({'status': newStatus});
     } catch (e) {
-      print('Error while updating order status: $e');
+      debugPrint('Error while updating order status: $e');
       rethrow;
     }
   }
@@ -97,15 +97,17 @@ class RealDataBaseService {
         }
 
         userOrders.sort((a, b) {
-          DateTime dateA = DateTime.parse(a['orderDate']);
-          DateTime dateB = DateTime.parse(b['orderDate']);
+          final rawA = a['orderDate'];
+          final rawB = b['orderDate'];
+          DateTime dateA = DateTime.parse(rawA);
+          DateTime dateB = DateTime.parse(rawB);
           return dateB.compareTo(dateA); // Latest first
         });
       }
 
       return userOrders;
     } catch (e) {
-      print('Error while fetching orders by user ID: $e');
+      debugPrint('Error while fetching orders by user ID: $e');
       rethrow;
     }
   }
@@ -138,7 +140,7 @@ class RealDataBaseService {
       }
       return kitchenOrders;
     } catch (e) {
-      print('Error while fetching orders by kitchen ID: $e');
+      debugPrint('Error while fetching orders by kitchen ID: $e');
       rethrow;
     }
   }

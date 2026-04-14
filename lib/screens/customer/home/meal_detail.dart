@@ -4,6 +4,7 @@ import 'package:diet_app/modals/cart_item.dart';
 import 'package:diet_app/providers/cart_provider.dart';
 import 'package:diet_app/providers/customer_provider.dart';
 import 'package:diet_app/utilities/alergies_model.dart';
+import 'package:diet_app/utilities/bmi_meal_filter.dart';
 import 'package:diet_app/utilities/toast.dart';
 import 'package:flutter/material.dart';
 import 'package:diet_app/utilities/constants.dart';
@@ -80,7 +81,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
           // Store ingredients user cannot take
           ingredientsThatUserCannotTake =
               rawResult.map((e) => e.toString().toLowerCase()).toSet().toList();
-          print("Ingredients user cannot take: $ingredientsThatUserCannotTake");
+          debugPrint("Ingredients user cannot take: $ingredientsThatUserCannotTake");
 
           // Only uncheck CHANGEABLE ingredients that match allergens.
           // Non-changeable (mandatory) ingredients stay CHECKED — we show
@@ -109,7 +110,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
         });
       }
     } catch (e) {
-      print("Error during prediction Meal Detail: $e");
+      debugPrint("Error during prediction Meal Detail: $e");
     }
   }
 
@@ -182,7 +183,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: defaultColor.warningColor.withOpacity(0.1),
+        color: defaultColor.warningColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: defaultColor.warningColor, width: 1.5),
       ),
@@ -232,10 +233,16 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                 AspectRatio(
                   aspectRatio: 16 / 9,
                   child: widget.meal['mealPicture'] != null
-                      ? Image.network(widget.meal['mealPicture'],
-                          fit: BoxFit.cover)
+                      ? Image.network(
+                          widget.meal['mealPicture'],
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: defaultColor.primaryColor.withValues(alpha: 0.1),
+                            child: const Icon(Icons.restaurant, size: 80),
+                          ),
+                        )
                       : Container(
-                          color: defaultColor.primaryColor.withOpacity(0.1),
+                          color: defaultColor.primaryColor.withValues(alpha: 0.1),
                           child: const Icon(Icons.fastfood, size: 80),
                         ),
                 ),
@@ -245,7 +252,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                 Container(
                   padding:
                       const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                  color: defaultColor.primaryColor.withOpacity(0.03),
+                  color: defaultColor.primaryColor.withValues(alpha: 0.03),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -257,7 +264,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                             horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
-                          color: defaultColor.primaryColor.withOpacity(0.1),
+                          color: defaultColor.primaryColor.withValues(alpha: 0.1),
                         ),
                         child: Text(
                           quantity.toString(),
@@ -308,6 +315,9 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                   fontSize: 16, color: Colors.grey[600])),
                         ],
                       ),
+                      const SizedBox(height: 12),
+                      // Calorie & BMI Advice
+                      _buildCalorieAndAdvice(),
                       const SizedBox(height: 16),
                       // Description
                       const Text('Description',
@@ -454,19 +464,19 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: isAllergen
-              ? defaultColor.warningColor.withOpacity(0.08)
-              : defaultColor.primaryColor.withOpacity(0.1),
+              ? defaultColor.warningColor.withValues(alpha: 0.08)
+              : defaultColor.primaryColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isAllergen
-                ? defaultColor.warningColor.withOpacity(0.5)
-                : defaultColor.primaryColor.withOpacity(0.3),
+                ? defaultColor.warningColor.withValues(alpha: 0.5)
+                : defaultColor.primaryColor.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
           children: [
             Checkbox(
-              activeColor: defaultColor.primaryColor.withOpacity(0.8),
+              activeColor: defaultColor.primaryColor.withValues(alpha: 0.8),
               value: selectedIngredients[index],
               onChanged: isChangeAble
                   ? (bool? value) {
@@ -554,6 +564,63 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
           backgroundColor: defaultColor.primaryColor,
           padding: const EdgeInsets.symmetric(vertical: 16),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCalorieAndAdvice() {
+    final calories = widget.meal['calories'] as int?;
+    final bmi = Provider.of<CustomerProvider>(context, listen: false)
+        .calculateBmi();
+
+    if (calories == null || calories <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    final advice = BmiMealFilter.getCalorieAdvice(bmi, calories);
+    final isRecommended = BmiMealFilter.isMealRecommended(bmi, calories);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isRecommended
+            ? defaultColor.lightGreenColor.withValues(alpha: 0.1)
+            : Colors.orange.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isRecommended
+              ? defaultColor.lightGreenColor.withValues(alpha: 0.3)
+              : Colors.orange.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.local_fire_department,
+              color: Colors.orange[700], size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$calories kcal per serving',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  advice,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isRecommended
+                        ? defaultColor.lightGreenColor
+                        : Colors.orange[700],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

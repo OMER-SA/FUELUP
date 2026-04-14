@@ -122,7 +122,7 @@ Future<void> changeRecipieDialog(
 //                                   ? Border(
 //                                       left: BorderSide(
 //                                           color: defaultColors.primaryColor
-//                                               .withOpacity(0.3)),
+//                                               .withValues(alpha: 0.3)),
 //                                     )
 //                                   : null),
 //                           child: Column(

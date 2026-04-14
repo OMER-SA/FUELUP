@@ -1,7 +1,9 @@
 import 'package:diet_app/components/loading.dart';
 import 'package:diet_app/firebase/auth_service.dart';
+import 'package:diet_app/firebase/quota_guard.dart';
 import 'package:diet_app/providers/user_provider.dart';
 import 'package:diet_app/utilities/constants.dart';
+import 'package:diet_app/utilities/quota_limit_notifier.dart';
 import 'package:diet_app/utilities/toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -143,9 +145,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               await _authentication
                                   .login(_emailController.text.trim(),
                                       _passwordController.text.trim())
-                                  .then((value) {
+                                  .then((value) async {
                                 if (context.mounted) {
-                                  context.read<UserIdProvider>().setUser(
+                                  await context.read<UserIdProvider>().setUser(
                                       context: context,
                                       id: value.toString(),
                                       loadingFalse: () {
@@ -153,6 +155,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                       });
                                 }
                               }).catchError((error) {
+                                QuotaGuard.instance.markIfQuotaExceeded(
+                                  error,
+                                  operation: 'login.screen',
+                                );
+                                if (context.mounted) {
+                                  QuotaLimitNotifier.showIfNeeded(context);
+                                }
                                 FlutterToast.showToast(
                                     error.toString(), defaultColors.redColor);
                                 setState(() {

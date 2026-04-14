@@ -1,14 +1,13 @@
 {
   "project_info": {
-    "project_number": "979242686493",
-    "firebase_url": "https://diet-aid-dda01-default-rtdb.firebaseio.com",
-    "project_id": "diet-aid-dda01",
-    "storage_bucket": "diet-aid-dda01.appspot.com"
+    "project_number": "457867932958",
+    "project_id": "fuelup-2e090",
+    "storage_bucket": "fuelup-2e090.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:979242686493:android:4a9e5f2166ab6aae6d4ef4",
+        "mobilesdk_app_id": "1:457867932958:android:6e90d37d26d5539f91850f",
         "android_client_info": {
           "package_name": "com.example.diet_app"
         }
@@ -16,26 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBrKYtdU-I1yy1rWwrJjb-4Kvgbcn36bo4"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:979242686493:android:4872b78927371e4c6d4ef4",
-        "android_client_info": {
-          "package_name": "com.example.flutter_application_1"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBrKYtdU-I1yy1rWwrJjb-4Kvgbcn36bo4"
+          "current_key": "AIzaSyC5W8mLxfaB4XHRz9--X21ut37SN6gC_Zw"
         }
       ],
       "services": {

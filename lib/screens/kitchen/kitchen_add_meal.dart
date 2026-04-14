@@ -125,7 +125,7 @@ class _KitchenAddMealScreenState extends State<KitchenAddMealScreen> {
         _image = XFile(image.path);
       });
     } catch (e) {
-      print('Error picking image: $e');
+      debugPrint('Error picking image: $e');
     } finally {
       setState(() {
         _isPickerActive = false;
@@ -172,10 +172,10 @@ class _KitchenAddMealScreenState extends State<KitchenAddMealScreen> {
           height: 150,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: defaultColors.secondaryColor.withOpacity(0.1),
+            color: defaultColors.secondaryColor.withValues(alpha: 0.1),
             border: Border.all(
               width: 2,
-              color: defaultColors.primaryColor.withOpacity(0.5),
+              color: defaultColors.primaryColor.withValues(alpha: 0.5),
             ),
           ),
           child: _image != null
@@ -211,7 +211,7 @@ class _KitchenAddMealScreenState extends State<KitchenAddMealScreen> {
       },
       hint: const Text("Plz! select a category of food"),
       borderRadius: BorderRadius.circular(4),
-      value: _selectedCategory,
+      initialValue: _selectedCategory,
       items: mealCategories,
       onChanged: (value) {
         if (value is String) {
@@ -263,7 +263,7 @@ class _KitchenAddMealScreenState extends State<KitchenAddMealScreen> {
                   "PKR",
                   style: TextStyle(
                     fontWeight: FontWeight.w300,
-                    color: defaultColors.richBlackColor.withOpacity(0.5),
+                    color: defaultColors.richBlackColor.withValues(alpha: 0.5),
                   ),
                 ),
               ),
@@ -357,7 +357,7 @@ class _KitchenAddMealScreenState extends State<KitchenAddMealScreen> {
                           Transform.scale(
                             scale: 0.8,
                             child: Switch(
-                              activeColor: defaultColors.lightGreenColor,
+                              activeThumbColor: defaultColors.lightGreenColor,
                               value: controller['isChangeAble'],
                               onChanged: (bool value) {
                                 setState(() {
@@ -473,10 +473,10 @@ class _KitchenAddMealScreenState extends State<KitchenAddMealScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(12.0),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.4),
+        color: Colors.white.withValues(alpha: 0.4),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
+            color: Colors.grey.withValues(alpha: 0.3),
             spreadRadius: 1,
             blurRadius: 5,
             offset: Offset(0, -3),
@@ -511,6 +511,7 @@ class _KitchenAddMealScreenState extends State<KitchenAddMealScreen> {
                     );
 
                     if (mealId != null && _image != null) {
+                      if (!mounted) return;
                       String downloadURL = await context
                           .read<CheffProvider>()
                           .uploadAndUpdateMealPicture(
@@ -518,7 +519,7 @@ class _KitchenAddMealScreenState extends State<KitchenAddMealScreen> {
                             cheffId: userIdProvider.getUuid.toString(),
                             mealId: mealId,
                           );
-                      print('Meal picture uploaded: $downloadURL');
+                      debugPrint('Meal picture uploaded: $downloadURL');
                     }
 
                     FlutterToast.showToast("Meal Created Successfully",

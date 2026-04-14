@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:diet_app/components/loading.dart';
 import 'package:diet_app/components/profile/profile_card.dart';
 import 'package:diet_app/firebase/auth_service.dart';
@@ -27,7 +29,7 @@ class _KitchenProfileScreenState extends State<KitchenProfileScreen> {
 
   Future<void> _pickAndUploadImage() async {
     if (_isPickerActive) {
-      print('Image picker is already active');
+      debugPrint('Image picker is already active');
       return;
     }
 
@@ -41,30 +43,36 @@ class _KitchenProfileScreenState extends State<KitchenProfileScreen> {
       final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
       if (image == null) {
-        print('No image selected');
+        debugPrint('No image selected');
         return;
       }
 
       XFile imageFile = XFile(image.path);
+      if (!mounted) return;
       String customerId = context.read<UserIdProvider>().getUuid.toString();
 
       String downloadURL = await _firebaseStorage.uploadProfilePicture(
           imageFile, customerId, 'customer');
 
+      if (!mounted) return;
       await context
           .read<CheffProvider>()
           .updateProfilePicturePathToDB(downloadURL, customerId);
 
       setState(() {});
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile picture updated successfully')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile picture updated successfully')),
+        );
+      }
     } catch (e) {
-      print('Error uploading image: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to update profile picture')),
-      );
+      debugPrint('Error uploading image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update profile picture')),
+        );
+      }
     } finally {
       setState(() {
         _isPickerActive = false;
@@ -76,7 +84,7 @@ class _KitchenProfileScreenState extends State<KitchenProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final cheffCredentials = context.watch<CheffProvider>();
-    print(
+    debugPrint(
         "cheffCredentials.getProfilePicture::::::: ${cheffCredentials.getProfilePicture}");
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12.0),
@@ -219,11 +227,15 @@ class _KitchenProfileScreenState extends State<KitchenProfileScreen> {
     try {
       await context.read<UserIdProvider>().logout();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error logging out: $e')),
-      );
+      if (mounted) {
+        developer.log('⚠️  KITCHEN_LOGOUT_IGNORED: error=$e');
+      }
     } finally {
-      setState(() => loading = false);
+      if (mounted) {
+        setState(() => loading = false);
+        developer.log('✅ LOGOUT_NAVIGATION_DONE: route=/auth/login');
+        context.go('/auth/login');
+      }
     }
   }
 }

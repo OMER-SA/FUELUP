@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:diet_app/components/bottom_navigation_bar.dart';
 import 'package:diet_app/components/kitchen_layout.dart';
 import 'package:diet_app/providers/customer_provider.dart';
@@ -10,6 +11,10 @@ import 'package:diet_app/screens/customer/cart/checkout.dart';
 import 'package:diet_app/screens/customer/home/home_page.dart';
 import 'package:diet_app/screens/customer/home/meal_detail.dart';
 import 'package:diet_app/screens/customer/order_screen.dart';
+import 'package:diet_app/screens/customer/profile/bmi_history_screen.dart';
+import 'package:diet_app/screens/customer/profile/calorie_calculator_screen.dart';
+import 'package:diet_app/screens/customer/profile/dietary_preferences_screen.dart';
+import 'package:diet_app/screens/customer/profile/goal_setting_screen.dart';
 import 'package:diet_app/screens/customer/profile/update_address.dart';
 import 'package:diet_app/screens/customer/profile/update_alergies.dart';
 import 'package:diet_app/screens/customer/profile/update_email.dart';
@@ -26,6 +31,7 @@ import 'package:diet_app/screens/kitchen/kitchen_profile/kitchen_profile.dart';
 import 'package:diet_app/screens/customer/profile/profile_page.dart';
 import 'package:diet_app/providers/user_provider.dart';
 import 'package:diet_app/screens/kitchen/kitchen_profile/kitchen_update_phone.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -35,28 +41,65 @@ class AppRouter {
     return GoRouter(
       initialLocation: '/auth/login',
       refreshListenable: userProvider,
-      redirect: (context, state) async {
-        final isAuthentic = userProvider.uid != null;
-        final isAuthRoute = state.matchedLocation == '/auth/login' ||
+      redirect: (context, state) {
+        // DO NOT add custom auto-login logic.
+        // DO NOT restore session from local storage.
+        // FirebaseAuth is the only source of truth.
+        final currentUser = FirebaseAuth.instance.currentUser;
+        final isAuthentic = currentUser != null;
+        final isForgotPasswordRoute =
+            state.matchedLocation == '/auth/forgotPassword';
+        final isLoginRoute = state.matchedLocation == '/auth/login';
+        final isAuthRoute = isLoginRoute ||
             state.matchedLocation == '/auth/signUp' ||
             state.matchedLocation == '/auth/forgotPassword';
 
-        if (!isAuthentic) {
-          final autoLoginSuccessful = await userProvider.tryAutoLogin();
-          if (autoLoginSuccessful) {
-            print("autoLoginSuccessful: $autoLoginSuccessful");
-            return userProvider.getRole == 'cheff' ? '/kitchen/home' : '/home';
-          }
+        developer.log('AUTH_CHECK_START: location=${state.matchedLocation}');
+        if (currentUser != null) {
+          developer.log('AUTH_USER_FOUND: uid=${currentUser.uid}');
+        } else {
+          developer.log('AUTH_NO_USER');
+        }
+        developer.log('🧭 ROUTER_REDIRECT: location=${state.matchedLocation}, isAuthentic=$isAuthentic');
+
+        // Keep forgot-password flow in auth even if a stale session exists.
+        if (isForgotPasswordRoute) {
+          developer.log('🧭 ROUTER_FORGOT_PASSWORD_FLOW');
+          return null;
         }
 
-        if (isAuthRoute && isAuthentic) {
-          return userProvider.getRole == 'cheff' ? '/kitchen/home' : '/home';
-        }
-
-        if (!isAuthentic && !isAuthRoute) {
+        if (userProvider.isLoggingOut) {
+          developer.log('🧭 ROUTER_LOGOUT_IN_PROGRESS_SKIP_AUTOLOGIN');
+          developer.log('ROUTER_REDIRECT_LOGIN');
           return '/auth/login';
         }
 
+        if (isAuthentic && isLoginRoute) {
+          developer.log('ROUTER_REDIRECT_HOME');
+          developer.log('🧭 ROUTER_AUTH_ROUTE_REDIRECT: from=${state.matchedLocation}, to=/home');
+          return '/home';
+        }
+
+        if (!isAuthentic) {
+          if (!isAuthRoute) {
+            developer.log('ROUTER_REDIRECT_LOGIN');
+            developer.log('🧭 ROUTER_UNAUTHENTICATED_REDIRECT: from=${state.matchedLocation}, to=/auth/login');
+            return '/auth/login';
+          }
+          if (isLoginRoute) {
+            developer.log('ROUTER_REDIRECT_LOGIN');
+          }
+          developer.log('🧭 ROUTER_NO_REDIRECT: location=${state.matchedLocation}');
+          return null;
+        }
+
+        if (isAuthRoute && isAuthentic) {
+          developer.log('ROUTER_REDIRECT_HOME');
+          developer.log('🧭 ROUTER_AUTH_ROUTE_REDIRECT: from=${state.matchedLocation}, to=/home');
+          return '/home';
+        }
+
+        developer.log('🧭 ROUTER_NO_REDIRECT: location=${state.matchedLocation}');
         return null;
       },
       routes: <RouteBase>[
@@ -137,6 +180,26 @@ class AppRouter {
                     pageBuilder: (context, state) =>
                         const MaterialPage(child: UpdateAlergiesScreen()),
                   ),
+                  GoRoute(
+                    path: 'bmiHistory',
+                    pageBuilder: (context, state) =>
+                        const MaterialPage(child: BmiHistoryScreen()),
+                  ),
+                  GoRoute(
+                    path: 'goalSetting',
+                    pageBuilder: (context, state) =>
+                        const MaterialPage(child: GoalSettingScreen()),
+                  ),
+                  GoRoute(
+                    path: 'calorieCalculator',
+                    pageBuilder: (context, state) =>
+                        const MaterialPage(child: CalorieCalculatorScreen()),
+                  ),
+                  GoRoute(
+                    path: 'dietaryPreferences',
+                    pageBuilder: (context, state) =>
+                        const MaterialPage(child: DietaryPreferencesScreen()),
+                  ),
                 ]),
             GoRoute(
               path: '/orders',
@@ -156,16 +219,6 @@ class AppRouter {
           ],
         ),
 
-        //============= Kitchen Routes ==================
-        //============= Kitchen Routes ==================
-        //============= Kitchen Routes ==================
-        //============= Kitchen Routes ==================
-        //============= Kitchen Routes ==================
-        //============= Kitchen Routes ==================
-        //============= Kitchen Routes ==================
-        //============= Kitchen Routes ==================
-        //============= Kitchen Routes ==================
-        //============= Kitchen Routes ==================
         //============= Kitchen Routes ==================
         ShellRoute(
             pageBuilder: (context, state, child) => MaterialPage(

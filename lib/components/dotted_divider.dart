@@ -9,7 +9,7 @@ class DottedDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: height,
       child: CustomPaint(
         painter: _DottedLinePainter(color),

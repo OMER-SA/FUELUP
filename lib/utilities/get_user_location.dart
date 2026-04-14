@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 
 import 'package:geocoding/geocoding.dart';
@@ -75,7 +76,7 @@ Future<String> getUserAddress() async {
     final String address = addressParts.join(', ');
     return address;
   } catch (e) {
-    print('Error getting user address: $e');
+    debugPrint('Error getting user address: $e');
     return ''; // Return empty string on error so the user can enter manually
   }
 }

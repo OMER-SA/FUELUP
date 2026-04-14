@@ -54,8 +54,10 @@ Future<void> emailVerficiationDialog(
                   User? updatedUser = FirebaseAuth.instance.currentUser;
                   if (updatedUser != null && updatedUser.emailVerified) {
                     timer?.cancel(); // Stop the timer
+                    if (!context.mounted) return;
                     Navigator.of(context)
                         .pop(); // Close the dialog once verified
+                    if (!context.mounted) return;
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(

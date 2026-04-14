@@ -69,7 +69,7 @@ class _MealIngredientsScreenState extends State<MealIngredientsScreen> {
     //                                             border: Border.all(
     //                                                 color: defaultColors
     //                                                     .primaryColor
-    //                                                     .withOpacity(0.5),
+    //                                                     .withValues(alpha: 0.5),
     //                                                 style: BorderStyle.solid)),
     //                                       ),
     //                                       Flexible(

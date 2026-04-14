@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:async';
 
-import 'package:diet_app/models/mood.dart';
+import 'package:diet_app/models/mood_types.dart';
 import 'package:diet_app/utilities/mfcc_extractor.dart';
 import 'package:diet_app/utilities/tag_based_mood_detector.dart';
 import 'package:flutter/foundation.dart';
@@ -30,12 +30,12 @@ class VoiceMoodDetector {
 
   Interpreter? _interpreter;
   bool _isLoaded = false;
-  Mood? _lastDetectedMood;
+  MoodType? _lastDetectedMood;
   double? _lastConfidence;
   bool _isRecordingSessionActive = false;
 
   bool get isLoaded => _isLoaded;
-  Mood? get lastDetectedMood => _lastDetectedMood;
+  MoodType? get lastDetectedMood => _lastDetectedMood;
   double? get lastConfidence => _lastConfidence;
 
   Future<void> load() async {
@@ -133,7 +133,7 @@ class VoiceMoodDetector {
     try {
       if (_isRecordingSessionActive) {
         return const MoodResult(
-          mood: Mood.unknown,
+          mood: MoodType.neutral,
           confidence: 0.0,
           status: MoodResultStatus.error,
         );
@@ -146,7 +146,7 @@ class VoiceMoodDetector {
       final granted = await requestPermission();
       if (!granted) {
         return const MoodResult(
-          mood: Mood.unknown,
+          mood: MoodType.neutral,
           confidence: 0.0,
           status: MoodResultStatus.permissionDenied,
         );
@@ -154,7 +154,7 @@ class VoiceMoodDetector {
 
       if (!_isLoaded || _interpreter == null) {
         return const MoodResult(
-          mood: Mood.unknown,
+          mood: MoodType.neutral,
           confidence: 0.0,
           status: MoodResultStatus.modelNotLoaded,
         );
@@ -170,7 +170,7 @@ class VoiceMoodDetector {
       final recorderHasPermission = await _recorder.hasPermission();
       if (!recorderHasPermission) {
         return const MoodResult(
-          mood: Mood.unknown,
+          mood: MoodType.neutral,
           confidence: 0.0,
           status: MoodResultStatus.permissionDenied,
         );
@@ -189,7 +189,7 @@ class VoiceMoodDetector {
         debugPrint('VoiceMoodDetector: recorder start failed — $error');
         debugPrintStack(stackTrace: stackTrace);
         return const MoodResult(
-          mood: Mood.unknown,
+          mood: MoodType.neutral,
           confidence: 0.0,
           status: MoodResultStatus.error,
         );
@@ -197,7 +197,7 @@ class VoiceMoodDetector {
         debugPrint('VoiceMoodDetector: unexpected recorder error — $error');
         debugPrintStack(stackTrace: stackTrace);
         return const MoodResult(
-          mood: Mood.unknown,
+          mood: MoodType.neutral,
           confidence: 0.0,
           status: MoodResultStatus.error,
         );
@@ -239,7 +239,7 @@ class VoiceMoodDetector {
       final samples = _parseWavPcm16(audioBytes);
       if (samples.isEmpty) {
         return const MoodResult(
-          mood: Mood.unknown,
+          mood: MoodType.neutral,
           confidence: 0.0,
           status: MoodResultStatus.error,
         );
@@ -248,7 +248,7 @@ class VoiceMoodDetector {
       final durationSeconds = samples.length / _sampleRate;
       if (durationSeconds < _minimumRecordingSeconds) {
         return const MoodResult(
-          mood: Mood.unknown,
+          mood: MoodType.neutral,
           confidence: 0.0,
           status: MoodResultStatus.tooShort,
         );
@@ -265,7 +265,7 @@ class VoiceMoodDetector {
       final normalized = MFCCExtractor.normalize(mfcc);
       if (normalized.isEmpty) {
         return const MoodResult(
-          mood: Mood.unknown,
+          mood: MoodType.neutral,
           confidence: 0.0,
           status: MoodResultStatus.error,
         );
@@ -274,7 +274,7 @@ class VoiceMoodDetector {
       final interpreter = _interpreter;
       if (interpreter == null) {
         return const MoodResult(
-          mood: Mood.unknown,
+          mood: MoodType.neutral,
           confidence: 0.0,
           status: MoodResultStatus.modelNotLoaded,
         );
@@ -302,7 +302,7 @@ class VoiceMoodDetector {
       final probabilities = List<double>.from(output.first);
       if (probabilities.length != _expectedClasses) {
         return const MoodResult(
-          mood: Mood.unknown,
+          mood: MoodType.neutral,
           confidence: 0.0,
           status: MoodResultStatus.error,
         );
@@ -320,14 +320,14 @@ class VoiceMoodDetector {
       final bestIndex = _argMax(probabilities);
       if (bestIndex < 0 || bestIndex >= MoodConfig.serModelLabels.length) {
         return const MoodResult(
-          mood: Mood.unknown,
+          mood: MoodType.neutral,
           confidence: 0.0,
           status: MoodResultStatus.error,
         );
       }
 
       final label = MoodConfig.serModelLabels[bestIndex];
-      final mood = MoodConfig.serLabelToMood[label] ?? Mood.unknown;
+      final mood = MoodTypeConfig.fromVoiceLabel(label);
       final confidence = probabilities[bestIndex].clamp(0.0, 1.0);
 
       _lastDetectedMood = mood;
@@ -342,7 +342,7 @@ class VoiceMoodDetector {
       debugPrint('VoiceMoodDetector detect failed: $error');
       debugPrintStack(stackTrace: stackTrace);
       return const MoodResult(
-        mood: Mood.unknown,
+        mood: MoodType.neutral,
         confidence: 0.0,
         status: MoodResultStatus.error,
       );
@@ -480,7 +480,7 @@ class VoiceMoodDetector {
       debugPrintStack(stackTrace: stackTrace);
 
       return const MoodResult(
-        mood: Mood.unknown,
+        mood: MoodType.neutral,
         confidence: 0.0,
         status: MoodResultStatus.error,
       );
@@ -532,22 +532,16 @@ class VoiceMoodDetector {
     return voiceResult;
   }
 
-  String _moodToString(Mood mood) {
+  String _moodToString(MoodType mood) {
     switch (mood) {
-      case Mood.happy:
+      case MoodType.happy:
         return 'happy';
-      case Mood.stressed:
-        return 'stressed';
-      case Mood.tired:
-        return 'tired';
-      case Mood.sad:
-        return 'sad';
-      case Mood.anxious:
-        return 'anxious';
-      case Mood.calm:
-        return 'calm';
-      case Mood.unknown:
-        return 'unknown';
+      case MoodType.surprise:
+        return 'surprise';
+      case MoodType.unpleasant:
+        return 'unpleasant';
+      case MoodType.neutral:
+        return 'neutral';
     }
   }
 }
@@ -567,7 +561,7 @@ class MoodResult {
     required this.status,
   });
 
-  final Mood mood;
+  final MoodType mood;
   final double confidence;
   final MoodResultStatus status;
 

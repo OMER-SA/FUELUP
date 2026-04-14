@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:diet_app/firebase/realtime_database.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:diet_app/utilities/order_status.dart';
 
 class KitchenLayout extends StatefulWidget {
   final Widget child;
@@ -86,7 +87,7 @@ class _KitchenLayoutState extends State<KitchenLayout> {
       List<String> orderStatus = [];
       final orders = await _dbService.fetchOrdersByKitchenId(kitchenId);
       for (var element in orders) {
-        if (element['status'] != 'Delivered') {
+        if (element['status'] != OrderStatus.received) {
           orderStatus.add(element['status']);
         }
       }
@@ -113,7 +114,7 @@ class _KitchenLayoutState extends State<KitchenLayout> {
           final orders =
               (event.snapshot.value as Map<dynamic, dynamic>).values.toList();
           for (var element in orders) {
-            if (element['status'] != 'Order Recieved') {
+            if (element['status'] != OrderStatus.received) {
               orderStatus.add(element['status']);
             }
           }
@@ -249,7 +250,7 @@ class _KitchenLayoutState extends State<KitchenLayout> {
                       alignment: Alignment.center,
                       padding: const EdgeInsets.all(4.5),
                       decoration: BoxDecoration(
-                          color: defaultColors.redColor.withOpacity(0.8),
+                          color: defaultColors.redColor.withValues(alpha: 0.8),
                           shape: BoxShape.circle),
                       child: Text(
                         itemsLen < 10 ? itemsLen.toString() : '9+',

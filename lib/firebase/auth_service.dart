@@ -1,6 +1,9 @@
+import 'dart:developer' as developer;
 import 'package:diet_app/components/auth/signup_emailverficiation_dialog.dart';
+import 'package:flutter/foundation.dart';
 import 'package:diet_app/firebase/db_service.dart';
 import 'package:diet_app/firebase/firebase_messaging.dart';
+import 'package:diet_app/firebase/quota_guard.dart';
 import 'package:diet_app/modals/user.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -11,11 +14,12 @@ class Authentication {
       FirebaseNotificationService();
   
 
+
   Future<String?> register(SingUpDto userData, context) async {
     try {
       final UserCredential userCredential =
           await _auth.createUserWithEmailAndPassword(
-        email: userData.email,
+        email: userData.email.trim().toLowerCase(),
         password: userData.password,
       );
       User? user = userCredential.user;
@@ -27,46 +31,78 @@ class Authentication {
       }
       await user?.reload();
 
-      while (!user!.emailVerified) {
+      // Poll for email verification with timeout (max 5 minutes)
+      const int maxRetries = 150;
+      int retryCount = 0;
+      while (!user!.emailVerified && retryCount < maxRetries) {
         await user.reload();
         user = _auth.currentUser;
-        await Future.delayed(Duration(seconds: 2));
+        await Future.delayed(const Duration(seconds: 2));
+        retryCount++;
       }
+
+      if (!user.emailVerified) {
+        throw 'Email verification timed out. Please verify your email and try logging in.';
+      }
+
       if (user.emailVerified) {
         await _dbService.storeUserData(user, userData, 'fcmToken');
-        await messagingService.initialize(userID: user.uid.toString());
+        if (!QuotaGuard.instance.quotaExceeded) {
+          await messagingService.initialize(userID: user.uid.toString());
+        } else {
+          developer.log('REGISTER_POST_WRITE_SKIPPED_QUOTA: uid=${user.uid}');
+        }
         return user.uid;
       }
       return null;
     } on FirebaseAuthException catch (e) {
       throw _handleFirebaseAuthException(e);
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        throw 'Account created, but profile setup is blocked by Firestore permissions. Please contact support.';
+      }
+      throw 'Profile setup failed. Please try again.';
     }
   }
 
   Future<String?> login(String email, String password) async {
     try {
+      developer.log('🔐 LOGIN_START: email=$email');
+      
       final userCredential = await _auth.signInWithEmailAndPassword(
-        email: email,
+        email: email.trim().toLowerCase(),
         password: password,
       );
 
-      await messagingService.initialize(
-          userID: userCredential.user!.uid.toString());
+      final uid = userCredential.user?.uid;
+      developer.log('✅ LOGIN_AUTH_SUCCESS: uid=$uid, email=$email');
 
-      return userCredential.user?.uid;
+      // Keep login path read-only. Any write-capable setup is deferred outside auth.
+      developer.log('LOGIN_POST_PROCESSING_READ_ONLY: uid=$uid');
+
+      developer.log('✅ LOGIN_COMPLETE: uid=$uid');
+      return uid;
     } on FirebaseAuthException catch (e) {
-      throw _handleFirebaseAuthException(e);
+      final errorMsg = _handleFirebaseAuthException(e);
+      developer.log('❌ LOGIN_AUTH_ERROR: code=${e.code}, msg=$errorMsg, email=$email');
+      throw errorMsg;
     } catch (e) {
-      print("Error while logging in: $e");
+      developer.log('❌ LOGIN_UNEXPECTED_ERROR: error=$e, email=$email');
       rethrow;
     }
   }
 
   Future<void> signOut() async {
     try {
+      final currentUser = _auth.currentUser?.uid;
+      developer.log('🔐 LOGOUT_START: uid=$currentUser');
+      
       await _auth.signOut();
+      
+      developer.log('✅ LOGOUT_SUCCESS: uid=$currentUser');
     } catch (e) {
-      print('Error during logout: $e');
+      developer.log('❌ LOGOUT_ERROR: error=$e');
+      rethrow;
     }
   }
 
@@ -116,12 +152,11 @@ class Authentication {
         throw 'No user is currently signed in.';
       }
       await user.verifyBeforeUpdateEmail(newEmail);
-      await user.updateEmail(newEmail);
 
-      print("Verification email sent to $newEmail");
+      debugPrint("Verification email sent to $newEmail");
       return;
     } on FirebaseAuthException catch (e) {
-      print("Error updating email: $e");
+      debugPrint("Error updating email: $e");
       throw _handleFirebaseAuthException(e);
     }
   }
