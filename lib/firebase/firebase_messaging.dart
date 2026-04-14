@@ -1,10 +1,6 @@
-import 'dart:convert';
-import 'dart:developer';
 import 'package:diet_app/firebase/db_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:googleapis_auth/auth_io.dart';
-import 'package:flutter/services.dart' show rootBundle;
 
 class FirebaseNotificationService {
   final DBService _dbService = DBService();
@@ -13,11 +9,6 @@ class FirebaseNotificationService {
       FlutterLocalNotificationsPlugin();
 
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-
-  static const String serviceAccountPath =
-      'assets/service_account_key/diet-aid-dda01-firebase-adminsdk-2unhb-faadf76749.json';
-
-  static const _scopes = ['https://www.googleapis.com/auth/firebase.messaging'];
 
   Future<String?> getFCMToken() async {
     await _firebaseMessaging.requestPermission();
@@ -85,100 +76,13 @@ class FirebaseNotificationService {
     }
   }
 
-  static Future<void> sendPushMessageToCustomer({
-    required String token,
-    required String body,
-  }) async {
-    try {
-      var serviceAccountCredentialsJson =
-          await rootBundle.loadString(serviceAccountPath);
-      var serviceAccountCredentials =
-          ServiceAccountCredentials.fromJson(serviceAccountCredentialsJson);
-
-      var client =
-          await clientViaServiceAccount(serviceAccountCredentials, _scopes);
-
-      var url = Uri.parse(
-          'https://fcm.googleapis.com/v1/projects/diet-aid-dda01/messages:send');
-
-      print(
-          "serviceAccountCredentials.email: ${serviceAccountCredentials.email}");
-
-      var messagePayload = jsonEncode({
-        'message': {
-          'token': token,
-          'notification': {'title': 'Order Status Update', 'body': body},
-          'data': {'extraData1': 'value1', 'extraData2': 'value2'}
-        }
-      });
-
-      var response = await client.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: messagePayload,
-      );
-
-      if (response.statusCode == 200) {
-        print('Push notification sent successfully!');
-      } else {
-        log('Failed to send push notification. Status code: ${response.statusCode}');
-        log('Response body: ${response.body}');
-        log('Response headers: ${response.headers}');
-      }
-
-      client.close();
-    } catch (e) {
-      print("Error sending push notification: $e");
-      rethrow;
-    }
-  }
-
-  static Future<void> sendPushMessageToCheff(
-      {required String token,
-      required String body,
-      required String title}) async {
-    print("TOkennnnn:: $token");
-    try {
-      var serviceAccountCredentialsJson =
-          await rootBundle.loadString(serviceAccountPath);
-      var serviceAccountCredentials =
-          ServiceAccountCredentials.fromJson(serviceAccountCredentialsJson);
-
-      var client =
-          await clientViaServiceAccount(serviceAccountCredentials, _scopes);
-
-      var url = Uri.parse(
-          'https://fcm.googleapis.com/v1/projects/diet-aid-dda01/messages:send');
-      print(
-          "serviceAccountCredentials.email: ${serviceAccountCredentials.email}");
-      var messagePayload = jsonEncode({
-        'message': {
-          'token': token,
-          'notification': {'title': title, 'body': body.toString()},
-          'data': {'extraData1': 'value1', 'extraData2': 'value2'}
-        }
-      });
-
-      var response = await client.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: messagePayload,
-      );
-
-      if (response.statusCode == 200) {
-        print('Push notification sent successfully!');
-      } else {
-        log('Failed to send push notification: ${response.body}');
-      }
-
-      client.close();
-    } catch (e) {
-      print("Error sending push notification: $e");
-      rethrow;
-    }
-  }
+  // Push notifications are now handled by the custom backend:
+  //
+  // 1. Customer → Chef notifications:
+  //    POST /notifyChef on the Render backend.
+  //
+  // 2. Chef → Customer notifications (order status updates):
+  //    Handled by the backend listener process when the chef
+  //    updates the order status.
+  //    No client-side code needed.
 }

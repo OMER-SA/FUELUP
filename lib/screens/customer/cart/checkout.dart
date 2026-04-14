@@ -1,11 +1,11 @@
 import 'package:diet_app/components/checkout/payment_error_dialog.dart';
 import 'package:diet_app/components/loading.dart';
 import 'package:diet_app/firebase/db_service.dart';
-import 'package:diet_app/firebase/firebase_messaging.dart';
 import 'package:diet_app/firebase/realtime_database.dart';
 import 'package:diet_app/providers/cart_provider.dart';
 import 'package:diet_app/providers/customer_provider.dart';
 import 'package:diet_app/providers/user_provider.dart';
+import 'package:diet_app/utilities/backend_api.dart';
 import 'package:diet_app/utilities/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_credit_card/flutter_credit_card.dart';
@@ -339,7 +339,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       try {
         for (var item in cartProvider.cartItems.value) {
           final mealData = await _dbService.getMealById(item.recipieId);
-          final userData = await _dbService.getUser(item.kitchenId);
           final chefData = await _dbService.getCheff(item.kitchenId);
           final customerData =
               await _dbService.getCustomer(userProvider.getUuid.toString());
@@ -363,18 +362,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             originalRecipe: mealData['recipie'],
           );
 
-          if (userData['fcmToken'] != '') {
-            await FirebaseNotificationService.sendPushMessageToCheff(
-              token: userData['fcmToken'],
-              body: 'A Customer placed an order of ${item.name.toString()}',
-              title: "Order Status",
-            );
+          // Notify chef via the custom backend
+          try {
+            await callBackendEndpoint('/notifyChef', {
+              'chefId': item.kitchenId,
+              'title': 'New Order',
+              'body': 'A Customer placed an order of ${item.name.toString()}',
+            });
+          } catch (e) {
+            debugPrint('Error notifying chef: $e');
+            // Non-critical: order was still placed even if notification fails
           }
         }
 
         _processOrder(cartProvider);
       } catch (e) {
-        print("Error placing order: $e");
+        debugPrint("Error placing order: $e");
         // Handle any other error scenarios here
       } finally {
         setState(() {

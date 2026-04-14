@@ -1,1 +1,48 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"dietapp-ee0c0","appId":"1:540020632607:android:0bddd0fd779b40cb3c792a","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"dietapp-ee0c0","appId":"1:540020632607:ios:9bdd6b3f438414f73c792a","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"macos":{"default":{"projectId":"dietapp-ee0c0","appId":"1:540020632607:ios:9bdd6b3f438414f73c792a","uploadDebugSymbols":false,"fileOutput":"macos/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"dietapp-ee0c0","configurations":{"android":"1:540020632607:android:0bddd0fd779b40cb3c792a","ios":"1:540020632607:ios:9bdd6b3f438414f73c792a","macos":"1:540020632607:ios:9bdd6b3f438414f73c792a","web":"1:540020632607:web:b2761118bb0b775b3c792a","windows":"1:540020632607:web:4e0e28d8efdfbb463c792a"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "fuelup-2e090",
+          "appId": "1:457867932958:android:6e90d37d26d5539f91850f",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "fuelup-2e090",
+          "appId": "1:457867932958:ios:7ce6d06c6ef1342591850f",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "fuelup-2e090",
+          "appId": "1:457867932958:ios:7ce6d06c6ef1342591850f",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "fuelup-2e090",
+          "configurations": {
+            "android": "1:457867932958:android:6e90d37d26d5539f91850f",
+            "ios": "1:457867932958:ios:7ce6d06c6ef1342591850f",
+            "macos": "1:457867932958:ios:7ce6d06c6ef1342591850f",
+            "web": "1:457867932958:web:f19d656d08d770e691850f",
+            "windows": "1:457867932958:web:52b9b637f8fcb8e891850f"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "database": {
+    "rules": "database.rules.json"
+  }
+}

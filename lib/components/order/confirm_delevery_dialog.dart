@@ -1,8 +1,8 @@
 import 'package:diet_app/components/loading.dart';
-import 'package:diet_app/firebase/db_service.dart';
-import 'package:diet_app/firebase/firebase_messaging.dart';
 import 'package:diet_app/firebase/realtime_database.dart';
 import 'package:diet_app/providers/customer_provider.dart';
+import 'package:diet_app/utilities/backend_api.dart';
+import 'package:diet_app/utilities/order_status.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -11,8 +11,7 @@ Future<void> confirmDeliveryDialog(
   defaultColors,
   Map<String, dynamic> order,
 ) async {
-  final RealDataBaseService _realTimeDataBase = RealDataBaseService();
-  final DBService dbService = DBService();
+  final RealDataBaseService realTimeDataBase = RealDataBaseService();
   return showDialog<void>(
     context: context,
     builder: (BuildContext context) {
@@ -51,22 +50,22 @@ Future<void> confirmDeliveryDialog(
                             listen: false);
                         final fullName =
                             "${customerProvider.getFirstName} ${customerProvider.getLastName}";
-                        print("Orderrr::: ${order['kitchenId']}");
-                        final chefData = await dbService
-                            .getUser(order['kitchenId'].toString());
+                        await realTimeDataBase.updateOrderStatus(
+                            order['orderId'], OrderStatus.received);
 
-                        await _realTimeDataBase.updateOrderStatus(
-                            order['orderId'], 'Order Recieved');
-
-                        if (chefData['fcmToken'] != '') {
-                          await FirebaseNotificationService
-                              .sendPushMessageToCheff(
-                                  token: chefData['fcmToken'],
-                                  body:
-                                      'The order has been recieved by $fullName',
-                                  title: "Order Recieved");
+                        // Notify chef via the custom backend
+                        try {
+                          await callBackendEndpoint('/notifyChef', {
+                            'chefId': order['kitchenId'].toString(),
+                            'title': 'Order Received',
+                            'body':
+                                'The order has been received by $fullName',
+                          });
+                        } catch (e) {
+                          debugPrint('Error notifying chef: $e');
                         }
 
+                        if (!context.mounted) return;
                         Navigator.of(context).pop();
                         setState(() => loading = false);
                       },
