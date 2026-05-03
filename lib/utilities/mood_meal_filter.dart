@@ -1,7 +1,6 @@
 import 'package:diet_app/models/mood_types.dart';
 import 'package:diet_app/utilities/bmi_meal_filter.dart';
 import 'package:diet_app/utilities/tag_based_mood_detector.dart';
-import 'package:flutter/material.dart';
 
 class MoodMealFilter {
   static const Map<String, List<String>> _dietaryConflicts = {
@@ -26,9 +25,101 @@ class MoodMealFilter {
     'gluten_free': ['gluten', 'wheat'],
   };
 
+  static Map<String, double> _resolveWeights({
+    required MoodType? mood,
+    required double bmi,
+    required double currentWeight,
+    required double targetWeight,
+  }) {
+    double moodW = 0.35;
+    double calorieW = 0.30;
+    double bmiW = 0.20;
+    double goalW = 0.15;
+
+    final weightDiff = (targetWeight - currentWeight).abs();
+    final isUnderweight = bmi < 18.5;
+    final isOverweight = bmi >= 25.0;
+    final isObese = bmi >= 30.0;
+    final isUrgentGoal = weightDiff > 10;
+    final isUnpleasant = mood == MoodType.unpleasant;
+    final isEnergetic = mood == MoodType.surprise;
+
+    if (isUnpleasant && isUnderweight) {
+      moodW = 0.40;
+      calorieW = 0.15;
+      bmiW = 0.30;
+      goalW = 0.15;
+    } else if (isEnergetic && isObese) {
+      moodW = 0.25;
+      calorieW = 0.40;
+      bmiW = 0.25;
+      goalW = 0.10;
+    } else if (isUnpleasant && isOverweight) {
+      moodW = 0.30;
+      calorieW = 0.30;
+      bmiW = 0.25;
+      goalW = 0.15;
+    } else if (isUrgentGoal) {
+      moodW = 0.20;
+      calorieW = 0.40;
+      bmiW = 0.25;
+      goalW = 0.15;
+    } else if (isObese) {
+      moodW = 0.25;
+      calorieW = 0.40;
+      bmiW = 0.20;
+      goalW = 0.15;
+    }
+
+    final total = moodW + calorieW + bmiW + goalW;
+    return {
+      'mood': moodW / total,
+      'calorie': calorieW / total,
+      'bmi': bmiW / total,
+      'goal': goalW / total,
+    };
+  }
+
+  static String _resolveWeightProfile({
+    required MoodType? mood,
+    required double bmi,
+    required double currentWeight,
+    required double targetWeight,
+  }) {
+    final weightDiff = (targetWeight - currentWeight).abs();
+    final isUnderweight = bmi < 18.5;
+    final isOverweight = bmi >= 25.0;
+    final isObese = bmi >= 30.0;
+    final isUrgentGoal = weightDiff > 10;
+    final isUnpleasant = mood == MoodType.unpleasant;
+    final isEnergetic = mood == MoodType.surprise;
+
+    if (isUnpleasant && isUnderweight) {
+      return 'calm_mind_first';
+    }
+
+    if (isEnergetic && isObese) {
+      return 'calorie_controlled';
+    }
+
+    if (isUnpleasant && isOverweight) {
+      return 'health_balance';
+    }
+
+    if (isUrgentGoal) {
+      return 'goal_focused';
+    }
+
+    if (isObese) {
+      return 'calorie_controlled';
+    }
+
+    return 'mood_priority';
+  }
+
   static List<Map<String, dynamic>> rankMeals({
     required List<Map<String, dynamic>> meals,
-    required MoodType mood,
+    required MoodType? mood,
     required double bmi,
     required double currentWeight,
     required double targetWeight,
@@ -57,65 +148,65 @@ class MoodMealFilter {
     final effectiveCurrentWeight =
         currentWeight.isFinite && currentWeight > 0 ? currentWeight : 0.0;
     final effectiveTargetWeight =
-        targetWeight.isFinite && targetWeight > 0 ? targetWeight : effectiveCurrentWeight;
-    final moodTags = MoodTypeConfig.moodFoodTags[mood] ??
-      MoodTypeConfig.moodFoodTags[MoodType.neutral] ??
-        const <String, List<String>>{};
-    final preferTags =
-        (moodTags['prefer'] ?? const <String>[]).map(_normalizeTag).toSet();
-    final avoidTags =
-        (moodTags['avoid'] ?? const <String>[]).map(_normalizeTag).toSet();
+        targetWeight.isFinite && targetWeight > 0
+            ? targetWeight
+            : effectiveCurrentWeight;
+    final weights = _resolveWeights(
+      mood: mood,
+      bmi: bmi,
+      currentWeight: effectiveCurrentWeight,
+      targetWeight: effectiveTargetWeight,
+    );
+    final weightProfile = _resolveWeightProfile(
+      mood: mood,
+      bmi: bmi,
+      currentWeight: effectiveCurrentWeight,
+      targetWeight: effectiveTargetWeight,
+    );
 
-    final filteredMeals = <Map<String, dynamic>>[];
+    final filtered = meals.where((meal) {
+      final mealAllergens = _extractStringValues(meal['allergens']);
+      final mealTags = _extractTags(meal);
+      final allMealAllergenFields = {
+        ...mealAllergens,
+        ...mealTags,
+      };
 
-    for (final meal in meals) {
-      final tags = _extractTags(meal);
-      final allergenField = _extractStringValues(meal['allergens']);
-      final allMealAllergens = {...allergenField, ...tags};
-      final hasAllergen =
-          normalizedAllergies.any((allergy) => allMealAllergens.contains(allergy));
-
+      final hasAllergen = normalizedAllergies.any(
+        (allergy) => allMealAllergenFields.contains(allergy),
+      );
       if (hasAllergen) {
-        continue;
+        return false;
       }
 
       final mealDietaryLabels = _extractStringValues(meal['dietaryLabels']);
-      var excludesMeal = false;
 
       for (final pref in normalizedPrefs) {
         if (pref == 'vegetarian' &&
             !mealDietaryLabels.contains('vegetarian') &&
             !mealDietaryLabels.contains('vegan')) {
-          excludesMeal = true;
-          break;
+          return false;
         }
 
         if (pref == 'vegan' && !mealDietaryLabels.contains('vegan')) {
-          excludesMeal = true;
-          break;
+          return false;
         }
 
         if (pref == 'halal' && !mealDietaryLabels.contains('halal')) {
-          excludesMeal = true;
-          break;
+          return false;
         }
       }
 
-      if (!excludesMeal &&
-          mealDietaryLabels.isEmpty &&
-          tags.isNotEmpty &&
-          _violatesDietaryPreferences(tags, normalizedPrefs)) {
-        excludesMeal = true;
+      if (mealDietaryLabels.isEmpty &&
+          mealTags.isNotEmpty &&
+          _violatesDietaryPreferences(mealTags, normalizedPrefs)) {
+        return false;
       }
 
-      if (excludesMeal) {
-        continue;
-      }
+      return true;
+    }).map((meal) => Map<String, dynamic>.from(meal)).toList();
 
-      filteredMeals.add(Map<String, dynamic>.from(meal));
-    }
-
-    if (filteredMeals.isEmpty) {
+    if (filtered.isEmpty) {
       return meals
           .map((meal) {
             final fallback = Map<String, dynamic>.from(meal);
@@ -123,6 +214,7 @@ class MoodMealFilter {
               fallback,
               mood: mood,
               score: 0.0,
+              weightProfile: weightProfile,
               allFiltered: true,
             );
             return fallback;
@@ -130,14 +222,20 @@ class MoodMealFilter {
           .toList(growable: false);
     }
 
-    for (final meal in filteredMeals) {
+    final preferTags = mood == null
+        ? const <String>[]
+        : MoodTypeConfig.moodFoodTags[mood]!['prefer']!;
+    final avoidTags = mood == null
+        ? const <String>[]
+        : MoodTypeConfig.moodFoodTags[mood]!['avoid']!;
+
+    for (final meal in filtered) {
       final mealTags = _extractTags(meal);
       final calories = _asDouble(meal['calories']) ?? targetPerMeal;
       final protein = _asDouble(meal['protein']) ??
           _asDouble(meal['proteinGrams']) ??
           0.0;
-
-        final moodScore = mood == MoodType.neutral
+      final moodScore = mood == null
           ? 0.5
           : _calculateMoodScore(
               tags: mealTags,
@@ -161,25 +259,26 @@ class MoodMealFilter {
         protein: protein,
       );
 
-      final score = (moodScore * 0.35) +
-          (calorieScore * 0.30) +
-          (bmiScore * 0.20) +
-          (goalScore * 0.15);
+      final score = (moodScore * weights['mood']!) +
+          (calorieScore * weights['calorie']!) +
+          (bmiScore * weights['bmi']!) +
+          (goalScore * weights['goal']!);
 
       _attachMoodMetadata(
         meal,
         mood: mood,
         score: score.clamp(0.0, 1.0),
+        weightProfile: weightProfile,
       );
     }
 
-    filteredMeals.sort((left, right) {
+    filtered.sort((left, right) {
       final rightScore = _asDouble(right['_score']) ?? 0.0;
       final leftScore = _asDouble(left['_score']) ?? 0.0;
       return rightScore.compareTo(leftScore);
     });
 
-    return filteredMeals;
+    return filtered;
   }
 
   /// Strict matcher for voice-model labels only.
@@ -222,8 +321,8 @@ class MoodMealFilter {
 
   static double _calculateMoodScore({
     required List<String> tags,
-    required Set<String> preferTags,
-    required Set<String> avoidTags,
+    required List<String> preferTags,
+    required List<String> avoidTags,
   }) {
     if (preferTags.isEmpty) {
       return 0.5;
@@ -306,18 +405,25 @@ class MoodMealFilter {
 
   static void _attachMoodMetadata(
     Map<String, dynamic> meal, {
-    required MoodType mood,
+    required MoodType? mood,
     required double score,
+    required String weightProfile,
     bool allFiltered = false,
   }) {
-    final badge = MoodTypeConfig.badgeLabels[mood] ??
-      MoodTypeConfig.badgeLabels[MoodType.neutral]!;
-    final color = Color(MoodTypeConfig.colorValues[mood] ?? MoodTypeConfig.colorValues[MoodType.neutral]!);
+    final badge = mood == null
+        ? ''
+        : (MoodTypeConfig.badgeLabels[mood] ??
+            MoodTypeConfig.badgeLabels[MoodType.neutral]!);
+    final colorValue = mood == null
+        ? 0xFF888888
+        : (MoodTypeConfig.colorValues[mood] ??
+            MoodTypeConfig.colorValues[MoodType.neutral]!);
 
     meal['_score'] = score;
-    meal['_mood'] = mood.name;
+    meal['_mood'] = mood?.name;
     meal['_moodBadge'] = badge;
-    meal['_moodColor'] = color.toARGB32();
+    meal['_moodColor'] = colorValue;
+    meal['_weightProfile'] = weightProfile;
     if (allFiltered) {
       meal['_allFiltered'] = true;
     }

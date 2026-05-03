@@ -22,8 +22,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   QuotaGuard.instance.resetSession();
 
-  // Initialize Firebase and FirebaseAppCheck
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Guard against duplicate-app on hot restart
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
   await _recoverInterruptedLogout();
   // DISABLED: FirebaseAppCheck
   // await FirebaseAppCheck.instance.activate(

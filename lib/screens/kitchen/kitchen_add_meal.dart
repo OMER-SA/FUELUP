@@ -30,6 +30,37 @@ class _KitchenAddMealScreenState extends State<KitchenAddMealScreen> {
   final TextEditingController _mealNameController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _discriptionController = TextEditingController();
+  final TextEditingController _proteinController = TextEditingController();
+
+  static const List<String> _allTags = [
+    'balanced', 'plain', 'boiled', 'steamed', 'fresh',
+    'colorful', 'varied', 'healthy',
+    'energetic', 'spicy', 'bright', 'novel', 'pepper',
+    'warm', 'comfort_food', 'herbal', 'light', 'mild',
+    'heavy', 'fatty', 'caffeine', 'alcohol', 'sugar',
+    'protein', 'iron', 'b12', 'omega3', 'magnesium', 'fiber',
+    'complex_carb', 'whole_grain', 'greens', 'low_fat',
+    'high_protein',
+  ];
+
+  static const List<String> _allAllergens = [
+    'gluten', 'dairy', 'eggs', 'soy', 'shellfish', 'fish',
+    'tree_nuts', 'peanuts', 'sesame',
+  ];
+
+  static const List<String> _allDietaryLabels = [
+    'vegetarian', 'vegan', 'halal', 'gluten_free',
+    'high_protein', 'low_fat',
+  ];
+
+  static const List<String> _prepStyles = [
+    'boiled', 'steamed', 'grilled', 'fried', 'raw', 'baked',
+  ];
+
+  final Set<String> _selectedTags = {};
+  final Set<String> _selectedAllergens = {};
+  final Set<String> _selectedDietaryLabels = {};
+  String _prepStyle = 'boiled';
 
   bool loading = false;
 
@@ -44,6 +75,12 @@ class _KitchenAddMealScreenState extends State<KitchenAddMealScreen> {
 
   XFile? _image;
   bool _isPickerActive = false;
+
+  @override
+  void dispose() {
+    _proteinController.dispose();
+    super.dispose();
+  }
 
   void _showImageSourceOptions() {
     showModalBottomSheet(
@@ -152,6 +189,8 @@ class _KitchenAddMealScreenState extends State<KitchenAddMealScreen> {
                     _buildMealNameAndPrice(),
                     const SizedBox(height: 16),
                     _buildDescription(),
+                    const SizedBox(height: 16),
+                    _buildNutritionFields(),
                     const SizedBox(height: 24),
                     _buildRecipeSection(),
                   ],
@@ -283,6 +322,113 @@ class _KitchenAddMealScreenState extends State<KitchenAddMealScreen> {
         label: Text("Discription Optional"),
         hintText: "Enter Discription",
       ),
+    );
+  }
+
+  Column _buildNutritionFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Meal Tags',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: _allTags.map((tag) {
+            final selected = _selectedTags.contains(tag);
+            return FilterChip(
+              label: Text(tag.replaceAll('_', ' ')),
+              selected: selected,
+              onSelected: (val) {
+                setState(() {
+                  if (val) {
+                    _selectedTags.add(tag);
+                  } else {
+                    _selectedTags.remove(tag);
+                  }
+                });
+              },
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Allergens',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: _allAllergens.map((tag) {
+            final selected = _selectedAllergens.contains(tag);
+            return FilterChip(
+              label: Text(tag.replaceAll('_', ' ')),
+              selected: selected,
+              onSelected: (val) {
+                setState(() {
+                  if (val) {
+                    _selectedAllergens.add(tag);
+                  } else {
+                    _selectedAllergens.remove(tag);
+                  }
+                });
+              },
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Dietary Labels',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: _allDietaryLabels.map((tag) {
+            final selected = _selectedDietaryLabels.contains(tag);
+            return FilterChip(
+              label: Text(tag.replaceAll('_', ' ')),
+              selected: selected,
+              onSelected: (val) {
+                setState(() {
+                  if (val) {
+                    _selectedDietaryLabels.add(tag);
+                  } else {
+                    _selectedDietaryLabels.remove(tag);
+                  }
+                });
+              },
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _proteinController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            label: Text('Protein (g) Optional'),
+            hintText: '0',
+          ),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          initialValue: _prepStyle,
+          decoration: const InputDecoration(
+            label: Text('Prep Style'),
+          ),
+          items: _prepStyles
+              .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+              .toList(),
+          onChanged: (val) {
+            if (val != null) setState(() => _prepStyle = val);
+          },
+        ),
+      ],
     );
   }
 
@@ -500,6 +646,21 @@ class _KitchenAddMealScreenState extends State<KitchenAddMealScreen> {
                     loading = true;
                   });
                   try {
+                    final normalizedTags = _selectedTags
+                        .map((t) =>
+                            t.toLowerCase().replaceAll(' ', '_').trim())
+                        .where((t) => _allTags.contains(t))
+                        .toList();
+                    final normalizedAllergens = _selectedAllergens
+                        .map((t) =>
+                            t.toLowerCase().replaceAll(' ', '_').trim())
+                        .where((t) => _allAllergens.contains(t))
+                        .toList();
+                    final normalizedDietaryLabels = _selectedDietaryLabels
+                        .map((t) =>
+                            t.toLowerCase().replaceAll(' ', '_').trim())
+                        .where((t) => _allDietaryLabels.contains(t))
+                        .toList();
                     String? mealId = await _dbService.storeMeal(
                       category: _selectedCategory,
                       cheffId: userIdProvider.getUuid.toString(),
@@ -508,6 +669,13 @@ class _KitchenAddMealScreenState extends State<KitchenAddMealScreen> {
                       price: _priceController.text.trim(),
                       discription: _discriptionController.text.trim(),
                       recipie: recpieControllers,
+                      tags: normalizedTags,
+                      allergens: normalizedAllergens,
+                      dietaryLabels: normalizedDietaryLabels,
+                      protein:
+                          double.tryParse(_proteinController.text.trim()) ??
+                              0.0,
+                      prepStyle: _prepStyle,
                     );
 
                     if (mealId != null && _image != null) {

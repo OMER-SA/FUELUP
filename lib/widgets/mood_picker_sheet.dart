@@ -1,5 +1,7 @@
 import 'package:diet_app/models/mood_types.dart';
+import 'package:diet_app/providers/customer_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 Future<MoodType?> showMoodPickerSheet(
   BuildContext context, {
@@ -29,10 +31,10 @@ class _MoodPickerSheetState extends State<MoodPickerSheet> {
   MoodType? _selectedMood;
 
   static const Map<MoodType, String> _descriptions = {
-    MoodType.neutral: 'Balanced and steady',
+    MoodType.neutral: 'Calm and balanced',
     MoodType.happy: 'Positive and bright',
-    MoodType.surprise: 'Spontaneous or alert',
-    MoodType.unpleasant: 'Low, tense, or heavy',
+    MoodType.surprise: 'Alert and energised',
+    MoodType.unpleasant: 'Need some comfort',
   };
 
   @override
@@ -82,10 +84,15 @@ class _MoodPickerSheetState extends State<MoodPickerSheet> {
                 final mood = moods[index];
                 return _MoodCard(
                   mood: mood,
+                  badge: MoodTypeConfig.badgeLabels[mood] ?? '',
                   description: _descriptions[mood] ?? mood.name,
                   selected: _selectedMood == mood,
                   onTap: () {
                     setState(() => _selectedMood = mood);
+                    context.read<CustomerProvider>().setMood(
+                          mood,
+                          source: MoodSource.manual,
+                        );
                     Navigator.of(context).pop(mood);
                   },
                 );
@@ -108,12 +115,14 @@ class _MoodPickerSheetState extends State<MoodPickerSheet> {
 class _MoodCard extends StatelessWidget {
   const _MoodCard({
     required this.mood,
+    required this.badge,
     required this.description,
     required this.selected,
     required this.onTap,
   });
 
   final MoodType mood;
+  final String badge;
   final String description;
   final bool selected;
   final VoidCallback onTap;
@@ -171,6 +180,15 @@ class _MoodCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
+                    Text(
+                      badge,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: color,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
                     Text(
                       description,
                       style: TextStyle(

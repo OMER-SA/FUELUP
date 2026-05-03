@@ -164,8 +164,9 @@ class UserIdProvider with ChangeNotifier {
   bool get isLoggingOut => _isLoggingOut;
 
   void setUid(String userId) {
+    final changed = uid != userId;
     uid = userId;
-    notifyListeners();
+    if (changed) notifyListeners();
   }
 
   void syncAuthUser(String userId) => setUid(userId);

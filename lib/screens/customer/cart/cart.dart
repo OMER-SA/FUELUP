@@ -1,4 +1,5 @@
 import 'package:diet_app/components/cart/delete_item_dialog.dart';
+import 'package:diet_app/widgets/meal_image.dart';
 import 'package:diet_app/utilities/constants.dart';
 import 'package:diet_app/providers/cart_provider.dart';
 import 'package:flutter/material.dart';
@@ -124,16 +125,18 @@ class _CartScreenState extends State<CartScreen> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: defaultColors.primaryColor),
                     ),
-                    child: item.mealPicture == null || item.mealPicture!.isEmpty
-                        ? const Icon(Icons.fastfood)
-                        : Image.network(
-                            item.mealPicture!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => Container(
-                              color: defaultColors.primaryColor.withValues(alpha: 0.1),
-                              child: const Icon(Icons.restaurant, color: Colors.grey),
-                            ),
-                          ),
+                    clipBehavior: Clip.antiAlias,
+                    child: MealImage(
+                      meal: {
+                        'mealPicture': item.mealPicture,
+                        'mealName': item.name,
+                        'category': item.category,
+                        'tags': const <String>[],
+                      },
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

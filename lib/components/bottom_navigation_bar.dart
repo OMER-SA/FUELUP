@@ -65,8 +65,9 @@ class _BottomNavigationBarPageState extends State<BottomNavigationBarPage> {
   Future<void> _fetchNotificationCount() async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId != null) {
-      List<String> orderStatus = [];
       final notifications = await _dbService.fetchOrdersByUserId(userId);
+      if (!mounted) return;
+      List<String> orderStatus = [];
       for (var element in notifications) {
         if (element['status'] != OrderStatus.received) {
           orderStatus.add(element['status']);
@@ -117,7 +118,9 @@ class _BottomNavigationBarPageState extends State<BottomNavigationBarPage> {
         ((currentUserId ?? '').isNotEmpty && _loadedForUserId != currentUserId);
     if (shouldLoad) {
       _isInitialized = true;
-      _loadCustomerData();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadCustomerData();
+      });
     }
   }
 

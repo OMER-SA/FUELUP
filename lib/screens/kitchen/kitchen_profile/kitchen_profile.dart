@@ -5,6 +5,7 @@ import 'package:diet_app/components/profile/profile_card.dart';
 import 'package:diet_app/firebase/auth_service.dart';
 import 'package:diet_app/firebase/firebase_storage.dart';
 import 'package:diet_app/providers/chef_provider.dart';
+import 'package:diet_app/providers/customer_provider.dart';
 import 'package:diet_app/providers/user_provider.dart';
 import 'package:diet_app/utilities/constants.dart';
 import 'package:flutter/material.dart';
@@ -224,6 +225,8 @@ class _KitchenProfileScreenState extends State<KitchenProfileScreen> {
 
   Future<void> _handleLogout() async {
     setState(() => loading = true);
+    context.read<CustomerProvider>().reset();
+    context.read<CheffProvider>().reset();
     try {
       await context.read<UserIdProvider>().logout();
     } catch (e) {

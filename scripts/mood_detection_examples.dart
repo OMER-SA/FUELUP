@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print, non_constant_identifier_names, prefer_interpolation_to_compose_strings
 // 🧠 MOOD DETECTION SYSTEM - INTEGRATION EXAMPLES
 //
 // This file shows how to use the tag-based mood detection system

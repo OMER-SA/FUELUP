@@ -5,6 +5,12 @@ enum MoodType {
   unpleasant,
 }
 
+enum MoodSource {
+  voice,
+  manual,
+  unknown,
+}
+
 class MoodTypeConfig {
   static const List<String> voiceMoodLabels = <String>[
     'neutral',

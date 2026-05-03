@@ -1,5 +1,6 @@
 import 'package:diet_app/components/loading.dart';
 import 'package:diet_app/firebase/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:diet_app/firebase/quota_guard.dart';
 import 'package:diet_app/providers/user_provider.dart';
 import 'package:diet_app/utilities/constants.dart';
@@ -155,6 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       });
                                 }
                               }).catchError((error) {
+                                debugPrint('Login catchError: $error');
                                 QuotaGuard.instance.markIfQuotaExceeded(
                                   error,
                                   operation: 'login.screen',
@@ -162,8 +164,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                 if (context.mounted) {
                                   QuotaLimitNotifier.showIfNeeded(context);
                                 }
+                                final msg = error is FirebaseAuthException
+                                    ? _friendlyAuthError(error.code)
+                                    : error.toString();
                                 FlutterToast.showToast(
-                                    error.toString(), defaultColors.redColor);
+                                    msg, defaultColors.redColor);
                                 setState(() {
                                   loading = false;
                                 });
@@ -214,6 +219,28 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+  }
+
+  String _friendlyAuthError(String code) {
+    switch (code) {
+      case 'user-not-found':
+        return 'No account found with this email.';
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Incorrect email or password.';
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'user-disabled':
+        return 'This account has been disabled.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      case 'network-request-failed':
+        return 'No internet connection. Please check your network.';
+      case 'operation-not-allowed':
+        return 'Email sign-in is not enabled. Contact support.';
+      default:
+        return 'Sign in failed ($code). Please try again.';
+    }
   }
 
   @override

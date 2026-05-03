@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:diet_app/models/mood_types.dart';
-import 'package:diet_app/providers/customer_provider.dart';
 import 'package:diet_app/utilities/voice_mood_detector.dart';
 import 'package:diet_app/widgets/mood_picker_sheet.dart';
 import 'package:flutter/material.dart';
@@ -284,10 +283,12 @@ class _VoiceMoodButtonState extends State<VoiceMoodButton>
       return;
     }
 
-    await _finishWithMood(
-      selectedMood,
-      source: MoodSource.manual,
-    );
+    setState(() {
+      _lastMood = selectedMood;
+      _pendingMood = selectedMood;
+      _pendingConfidence = 0.0;
+      _state = _VoiceButtonState.idle;
+    });
   }
 
   Future<void> _skipMood() async {
@@ -312,20 +313,16 @@ class _VoiceMoodButtonState extends State<VoiceMoodButton>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 220),
-      child: Card(
-        key: ValueKey<_VoiceButtonState>(_state),
-        margin: EdgeInsets.zero,
-        elevation: 1,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: _state == _VoiceButtonState.idle ? _startListening : null,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: _buildStateContent(context),
-          ),
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: _state == _VoiceButtonState.idle ? _startListening : null,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: _buildStateContent(context),
         ),
       ),
     );

@@ -37,6 +37,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 class AppRouter {
+  // Router configuration for the app.
+
   getRouterConfig(UserIdProvider userProvider) {
     return GoRouter(
       initialLocation: '/auth/login',
@@ -45,22 +47,49 @@ class AppRouter {
         // DO NOT add custom auto-login logic.
         // DO NOT restore session from local storage.
         // FirebaseAuth is the only source of truth.
+        final location = state.matchedLocation;
         final currentUser = FirebaseAuth.instance.currentUser;
         final isAuthentic = currentUser != null;
-        final isForgotPasswordRoute =
-            state.matchedLocation == '/auth/forgotPassword';
-        final isLoginRoute = state.matchedLocation == '/auth/login';
-        final isAuthRoute = isLoginRoute ||
-            state.matchedLocation == '/auth/signUp' ||
-            state.matchedLocation == '/auth/forgotPassword';
 
-        developer.log('AUTH_CHECK_START: location=${state.matchedLocation}');
+        // DEFINITIVE EARLY EXIT — runs on EVERY router evaluation, before any
+        // other logic. Prevents the infinite loop caused by userProvider
+        // calling notifyListeners() during data loading: each call re-triggers
+        // GoRouter's redirect, and state.matchedLocation can momentarily report
+        // a stale value. Once the user is on the right route, we stop all
+        // further redirect work immediately.
+        //
+        // Use isAuthentic (FirebaseAuth) not userProvider.getUuid here —
+        // getUuid may still be null while Firebase auth is already confirmed,
+        // which would cause the guard to fail and fall through to the loop.
+        final role = userProvider.getRole;
+
+        if (isAuthentic && role == 'customer') {
+          if (location.startsWith('/home') ||
+              location.startsWith('/profile') ||
+              location.startsWith('/cart') ||
+              location.startsWith('/orders')) {
+            developer.log('🧭 ROUTER_NO_REDIRECT: location=$location');
+            return null;
+          }
+        }
+        if (isAuthentic && role == 'cheff' && location.startsWith('/kitchen')) {
+          developer.log('🧭 ROUTER_NO_REDIRECT: location=$location');
+          return null;
+        }
+
+        final isForgotPasswordRoute = location == '/auth/forgotPassword';
+        final isLoginRoute = location == '/auth/login';
+        final isAuthRoute = isLoginRoute ||
+            location == '/auth/signUp' ||
+            location == '/auth/forgotPassword';
+
+        developer.log('AUTH_CHECK_START: location=$location');
         if (currentUser != null) {
           developer.log('AUTH_USER_FOUND: uid=${currentUser.uid}');
         } else {
           developer.log('AUTH_NO_USER');
         }
-        developer.log('🧭 ROUTER_REDIRECT: location=${state.matchedLocation}, isAuthentic=$isAuthentic');
+        developer.log('🧭 ROUTER_REDIRECT: location=$location, isAuthentic=$isAuthentic');
 
         // Keep forgot-password flow in auth even if a stale session exists.
         if (isForgotPasswordRoute) {
@@ -75,31 +104,49 @@ class AppRouter {
         }
 
         if (isAuthentic && isLoginRoute) {
-          developer.log('ROUTER_REDIRECT_HOME');
-          developer.log('🧭 ROUTER_AUTH_ROUTE_REDIRECT: from=${state.matchedLocation}, to=/home');
-          return '/home';
+          if (role == null) return null; // wait for role to load
+          final destination = role == 'cheff' ? '/kitchen/home' : '/home';
+          developer.log('🧭 ROUTER_AUTH_ROUTE_REDIRECT: from=$location, role=$role, to=$destination');
+          return destination;
         }
 
         if (!isAuthentic) {
           if (!isAuthRoute) {
             developer.log('ROUTER_REDIRECT_LOGIN');
-            developer.log('🧭 ROUTER_UNAUTHENTICATED_REDIRECT: from=${state.matchedLocation}, to=/auth/login');
+            developer.log('🧭 ROUTER_UNAUTHENTICATED_REDIRECT: from=$location, to=/auth/login');
             return '/auth/login';
           }
           if (isLoginRoute) {
             developer.log('ROUTER_REDIRECT_LOGIN');
           }
-          developer.log('🧭 ROUTER_NO_REDIRECT: location=${state.matchedLocation}');
+          developer.log('🧭 ROUTER_NO_REDIRECT: location=$location');
           return null;
         }
 
         if (isAuthRoute && isAuthentic) {
-          developer.log('ROUTER_REDIRECT_HOME');
-          developer.log('🧭 ROUTER_AUTH_ROUTE_REDIRECT: from=${state.matchedLocation}, to=/home');
-          return '/home';
+          if (role == null) return null; // wait for role to load
+          final destination = role == 'cheff' ? '/kitchen/home' : '/home';
+          developer.log('🧭 ROUTER_AUTH_ROUTE_REDIRECT: from=$location, role=$role, to=$destination');
+          return destination;
         }
 
-        developer.log('🧭 ROUTER_NO_REDIRECT: location=${state.matchedLocation}');
+        // Prevent role cross-contamination: redirect chefs away from customer
+        // routes and customers away from kitchen routes.
+        if (isAuthentic) {
+          if (role == null) return null; // don't guard until role is known
+          final isKitchenRoute = location.startsWith('/kitchen');
+          final isCustomerRoute = !isKitchenRoute && !isAuthRoute;
+          if (role == 'cheff' && isCustomerRoute) {
+            developer.log('🧭 ROUTER_ROLE_GUARD: chef blocked from $location → /kitchen/home');
+            return '/kitchen/home';
+          }
+          if (role != 'cheff' && isKitchenRoute) {
+            developer.log('🧭 ROUTER_ROLE_GUARD: customer blocked from $location → /home');
+            return '/home';
+          }
+        }
+
+        developer.log('🧭 ROUTER_NO_REDIRECT: location=$location');
         return null;
       },
       routes: <RouteBase>[

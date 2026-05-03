@@ -148,7 +148,9 @@ class DBService {
   Future<Map<String, List<Map<String, dynamic>>>> getMeals(
       {String? category}) async {
     try {
-      Query query = _firebaseFirestoreInstance.collection('kitchenMeals');
+      Query query = _firebaseFirestoreInstance
+          .collection('kitchenMeals')
+          .where('available', isEqualTo: true);
 
       if (category != null && category != 'All') {
         query = query.where('category', isEqualTo: category);
@@ -592,6 +594,11 @@ class DBService {
       required String discription,
       required String kitchenName,
       required List<Map<String, dynamic>> recipie,
+      List<String> tags = const [],
+      List<String> allergens = const [],
+      List<String> dietaryLabels = const [],
+      double protein = 0.0,
+      String prepStyle = '',
       String? mealPicture}) async {
     try {
       await storeCategory(category: category);
@@ -617,6 +624,14 @@ class DBService {
         'mealPicture': mealPicture,
         'recipie': ingredients,
         'calories': totalCalories,
+        'available': true,
+        'tags': tags,
+        'allergens': allergens,
+        'dietaryLabels': dietaryLabels,
+        'protein': protein,
+        'prepStyle': prepStyle,
+        'autoTagged': false,
+        'autoTagModel': '',
       };
 
       DocumentReference docRef = await _firebaseFirestoreInstance

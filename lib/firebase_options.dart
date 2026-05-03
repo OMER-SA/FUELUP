@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'REVOKED_REPLACE_WITH_FIREBASE_API_KEY',
+    apiKey: 'AIzaSyC5W8mLxfaB4XHRz9--X21ut37SN6gC_Zw',
     appId: '1:457867932958:android:6e90d37d26d5539f91850f',
     messagingSenderId: '457867932958',
     projectId: 'fuelup-2e090',

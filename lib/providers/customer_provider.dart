@@ -7,12 +7,6 @@ import 'package:diet_app/utilities/tdee_calculator.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum MoodSource {
-  voice,
-  manual,
-  unknown,
-}
-
 class CustomerProvider with ChangeNotifier {
   CustomerProvider() {
     unawaited(loadPersistedMood());
@@ -61,7 +55,7 @@ class CustomerProvider with ChangeNotifier {
   String? _activityLevel;
   String? _gender;
   String? _customerId;
-  MoodType? _currentMoodType;
+  MoodType? _currentMood;
   double _moodConfidence = 0.0;
   MoodSource _moodSource = MoodSource.unknown;
 
@@ -149,8 +143,8 @@ class CustomerProvider with ChangeNotifier {
   double? get getTargetWeight => _targetWeight;
   String get getActivityLevel => _activityLevel ?? 'moderate';
   String get getGender => _gender ?? 'male';
-  MoodType? get currentMood => _currentMoodType;
-  MoodType? get currentMoodType => _currentMoodType;
+  MoodType? get currentMood => _currentMood;
+  MoodType? get currentMoodType => _currentMood;
   double get moodConfidence => _moodConfidence;
   MoodSource get moodSource => _moodSource;
   List<String> get dietaryPreferences => List.unmodifiable(_dietaryPreferences);
@@ -164,25 +158,38 @@ class CustomerProvider with ChangeNotifier {
 
   void setRemindeMeLater() => {_remindMeLater = true, notifyListeners()};
 
-  Future<void> setUserMood(
+  Future<void> setMood(
     MoodType mood, {
     double confidence = 0.0,
     MoodSource source = MoodSource.unknown,
   }) async {
-    _currentMoodType = mood;
+    _currentMood = mood;
     _moodConfidence = confidence;
     _moodSource = source;
+
+    notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('last_mood', mood.name);
     await prefs.setString('mood_set_at', DateTime.now().toIso8601String());
     await prefs.setString('last_mood_source', source.name);
+    await prefs.setDouble('last_mood_confidence', confidence);
+  }
 
-    notifyListeners();
+  Future<void> setUserMood(
+    MoodType mood, {
+    double confidence = 0.0,
+    MoodSource source = MoodSource.unknown,
+  }) {
+    return setMood(
+      mood,
+      confidence: confidence,
+      source: source,
+    );
   }
 
   Future<void> clearMood() async {
-    _currentMoodType = null;
+    _currentMood = null;
     _moodConfidence = 0.0;
     _moodSource = MoodSource.unknown;
 
@@ -190,7 +197,31 @@ class CustomerProvider with ChangeNotifier {
     await prefs.remove('last_mood');
     await prefs.remove('mood_set_at');
     await prefs.remove('last_mood_source');
+    await prefs.remove('last_mood_confidence');
 
+    notifyListeners();
+  }
+
+  void reset() {
+    _address = null;
+    _allergies = [];
+    _dietaryPreferences = [];
+    _firstName = null;
+    _lastName = null;
+    _phone = null;
+    _profilePicture = null;
+    _weight = null;
+    _age = null;
+    _height = null;
+    _remindMeLater = null;
+    _fcmToken = null;
+    _targetWeight = null;
+    _activityLevel = null;
+    _gender = null;
+    _customerId = null;
+    _currentMood = null;
+    _moodConfidence = 0.0;
+    _moodSource = MoodSource.unknown;
     notifyListeners();
   }
 
@@ -220,8 +251,9 @@ class CustomerProvider with ChangeNotifier {
       orElse: () => MoodSource.unknown,
     );
 
-    _currentMoodType = moodType;
+    _currentMood = moodType;
     _moodSource = source;
+    _moodConfidence = prefs.getDouble('last_mood_confidence') ?? 0.0;
     notifyListeners();
   }
 

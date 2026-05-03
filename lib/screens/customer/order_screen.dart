@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:diet_app/components/dotted_divider.dart';
+import 'package:diet_app/widgets/meal_image.dart';
 import 'package:diet_app/components/loading.dart';
 import 'package:diet_app/components/order/confirm_delevery_dialog.dart';
 import 'package:diet_app/providers/user_provider.dart';
@@ -255,18 +256,12 @@ class _OrderScreenState extends State<OrderScreen> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: colors.primaryColor),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: order['mealPicture'] == null || order['mealPicture'].toString().isEmpty
-            ? Icon(Icons.fastfood, size: 50, color: colors.primaryColor)
-            : Image.network(
-                order['mealPicture'],
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: colors.primaryColor.withValues(alpha: 0.1),
-                  child: const Icon(Icons.restaurant, color: Colors.grey),
-                ),
-              ),
+      clipBehavior: Clip.antiAlias,
+      child: MealImage(
+        meal: order,
+        width: 100,
+        height: 100,
+        fit: BoxFit.cover,
       ),
     );
   }

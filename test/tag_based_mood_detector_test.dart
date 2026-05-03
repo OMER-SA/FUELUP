@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print
 import 'package:diet_app/utilities/mood_meal_filter.dart';
 import 'package:diet_app/utilities/tag_based_mood_detector.dart';
 

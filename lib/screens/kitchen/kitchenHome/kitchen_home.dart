@@ -5,6 +5,7 @@ import 'package:diet_app/firebase/db_service.dart';
 import 'package:diet_app/providers/chef_provider.dart';
 import 'package:diet_app/providers/user_provider.dart';
 import 'package:diet_app/utilities/constants.dart';
+import 'package:diet_app/widgets/meal_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
@@ -160,23 +161,11 @@ class _KitchenHomeScreenState extends State<KitchenHomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Container(
-                height: 100,
-                color: colors.secondaryColor.withValues(alpha: 0.1),
-                alignment: Alignment.center,
-                child: meal['mealPicture'] != null
-                    ? Image.network(
-                        meal['mealPicture'],
-                        fit: BoxFit.fitWidth,
-                        width: double.infinity,
-                        height: double.infinity,
-                      )
-                    : Icon(Icons.restaurant_menu,
-                        size: 64, color: colors.greyColor),
-              ),
+            MealImage(
+              meal: meal,
+              height: 100,
+              fit: BoxFit.cover,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

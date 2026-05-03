@@ -69,26 +69,31 @@ class CommonAllergies {
 }
 
 class MealCategories {
+  static const List<String> values = [
+    'Breakfast',
+    'Lunch',
+    'Dinner',
+    'Snacks',
+    'Beverages',
+    'Healthy',
+    'Italian',
+    'Asian',
+    'Mexican',
+  ];
+
   static List<DropdownMenuItem> categories = const <DropdownMenuItem>[
     DropdownMenuItem(
       value: "No Category Selected",
       child: Text("No Category Selected"),
     ),
-    DropdownMenuItem(
-      value: "italian",
-      child: Text("Italian"),
-    ),
-    DropdownMenuItem(
-      value: "asian",
-      child: Text("Asian"),
-    ),
-    DropdownMenuItem(
-      value: "mexican",
-      child: Text("Mexican"),
-    ),
-    DropdownMenuItem(
-      value: "breakfast",
-      child: Text("Breakfast"),
-    ),
+    DropdownMenuItem(value: "Breakfast", child: Text("Breakfast")),
+    DropdownMenuItem(value: "Lunch", child: Text("Lunch")),
+    DropdownMenuItem(value: "Dinner", child: Text("Dinner")),
+    DropdownMenuItem(value: "Snacks", child: Text("Snacks")),
+    DropdownMenuItem(value: "Beverages", child: Text("Beverages")),
+    DropdownMenuItem(value: "Healthy", child: Text("Healthy")),
+    DropdownMenuItem(value: "Italian", child: Text("Italian")),
+    DropdownMenuItem(value: "Asian", child: Text("Asian")),
+    DropdownMenuItem(value: "Mexican", child: Text("Mexican")),
   ];
 }

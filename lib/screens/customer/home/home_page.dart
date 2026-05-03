@@ -8,6 +8,7 @@ import 'package:diet_app/utilities/bmi_meal_filter.dart';
 import 'package:diet_app/utilities/constants.dart';
 import 'package:diet_app/utilities/mood_meal_filter.dart';
 import 'package:diet_app/utilities/voice_mood_detector.dart';
+import 'package:diet_app/widgets/meal_image.dart';
 import 'package:diet_app/widgets/mood_onboarding_tooltip.dart';
 import 'package:diet_app/widgets/mood_picker_sheet.dart';
 import 'package:diet_app/widgets/voice_mood_button.dart';
@@ -115,15 +116,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Stack(
       children: [
-        SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildRecommendedSection(),
-              _buildCategoriesSection(),
-              const SizedBox(height: 20),
-              _buildKitchenMealsSection(),
-            ],
+        RefreshIndicator(
+          onRefresh: _loadData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildRecommendedSection(),
+                _buildCategoriesSection(),
+                const SizedBox(height: 20),
+                _buildKitchenMealsSection(),
+              ],
+            ),
           ),
         ),
         const MoodOnboardingTooltip(),
@@ -304,23 +309,58 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Check if a meal contains any ingredients matching the customer's allergies
   bool _mealHasAllergens(
       Map<String, dynamic> meal, List<String> customerAllergies) {
     if (customerAllergies.isEmpty) return false;
-    final recipe = meal['recipie'] as List<dynamic>?;
-    if (recipe == null || recipe.isEmpty) return false;
 
-    for (var item in recipe) {
-      final ingredientName =
-          (item['ingredient'] ?? '').toString().toLowerCase();
-      for (var allergy in customerAllergies) {
-        final pattern = RegExp(
-          r'\b' +
-              RegExp.escape(allergy.replaceAll(RegExp(r's$'), '')) +
-              r's?\b',
-        );
-        if (pattern.hasMatch(ingredientName)) return true;
+    String normalize(String s) =>
+        s.trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+
+    bool fuzzyMatch(String field, String allergy) {
+      final stem = allergy.replaceAll(RegExp(r's$'), '');
+      final pattern = RegExp(r'\b' + RegExp.escape(stem) + r's?\b');
+      return pattern.hasMatch(field);
+    }
+
+    for (final allergy in customerAllergies) {
+      final normalizedAllergy = normalize(allergy);
+
+      // Check meal['allergens']
+      final allergens = meal['allergens'];
+      final allergenList = allergens is List
+          ? allergens.map((e) => normalize(e.toString())).toList()
+          : allergens is String
+              ? allergens.split(',').map(normalize).toList()
+              : <String>[];
+      if (allergenList.any((a) =>
+          a == normalizedAllergy ||
+          a.contains(normalizedAllergy) ||
+          normalizedAllergy.contains(a))) {
+        return true;
+      }
+
+      // Check meal['tags']
+      final tags = meal['tags'];
+      final tagList = tags is List
+          ? tags.map((e) => normalize(e.toString())).toList()
+          : tags is String
+              ? tags.split(',').map(normalize).toList()
+              : <String>[];
+      if (tagList.any((t) =>
+          t == normalizedAllergy ||
+          t.contains(normalizedAllergy) ||
+          normalizedAllergy.contains(t))) {
+        return true;
+      }
+
+      // Check recipe ingredients
+      final recipe = meal['recipie'] as List<dynamic>?;
+      if (recipe != null) {
+        for (final item in recipe) {
+          final ingredientName =
+              (item['ingredient'] ?? '').toString().toLowerCase();
+          if (fuzzyMatch(ingredientName, allergy)) return true;
+        }
       }
     }
     return false;
@@ -358,27 +398,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     AspectRatio(
                       aspectRatio: 16 / 9,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color:
-                              _defaultColor.primaryColor.withValues(alpha: 0.1),
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(12)),
-                        ),
-                        child: meal['mealPicture'] == null
-                            ? const Icon(Icons.fastfood)
-                            : ClipRRect(
-                                borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(12)),
-                                child: Image.network(
-                                  meal['mealPicture'],
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Container(
-                                    color: _defaultColor.primaryColor.withValues(alpha: 0.1),
-                                    child: const Icon(Icons.restaurant, color: Colors.grey),
-                                  ),
-                                ),
-                              ),
+                      child: MealImage(
+                        meal: meal,
+                        fit: BoxFit.cover,
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(12)),
                       ),
                     ),
                     if (hasAllergens)
@@ -479,11 +503,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildRecommendedSection() {
-    final customerProvider = context.watch<CustomerProvider>();
-    final bmi = customerProvider.calculateBmi();
-    final currentWeight = customerProvider.getWeight?.toDouble() ?? 0.0;
-    final targetWeight = customerProvider.getTargetWeight ?? currentWeight;
-    final goalCalories = customerProvider.goalCalories ?? _fallbackGoalCalories(bmi);
+    final provider = context.watch<CustomerProvider>();
+    final currentMood = provider.currentMood;
+    final bmi = provider.calculateBmi();
+    final currentWeight = provider.getWeight?.toDouble() ?? 0.0;
+    final targetWeight = provider.getTargetWeight ?? currentWeight;
+    final goalCalories = provider.goalCalories ?? _fallbackGoalCalories(bmi);
 
     if (bmi <= 0 || _groupedMeals.isEmpty) {
       return const SizedBox.shrink();
@@ -498,22 +523,16 @@ class _HomeScreenState extends State<HomeScreen> {
       return const SizedBox.shrink();
     }
 
-    final currentMoodType = customerProvider.currentMoodType;
-    final recommended = currentMoodType == null
-        ? MoodMealFilter.rankMeals(
-            meals: allMeals,
-        mood: customerProvider.currentMood ?? MoodType.neutral,
-            bmi: bmi,
-            currentWeight: currentWeight,
-            targetWeight: targetWeight,
-            goalCalories: goalCalories,
-            allergies: customerProvider.allergies,
-            dietaryPrefs: customerProvider.dietaryPreferences,
-          ).take(5).toList(growable: false)
-        : MoodMealFilter.getRecommendedMeals(
-            meals: allMeals,
-            userMood: currentMoodType.name,
-          ).take(5).toList(growable: false);
+    final recommended = MoodMealFilter.rankMeals(
+      meals: allMeals,
+      mood: currentMood,
+      bmi: bmi,
+      currentWeight: currentWeight,
+      targetWeight: targetWeight,
+      goalCalories: goalCalories,
+      allergies: provider.allergies,
+      dietaryPrefs: provider.dietaryPreferences,
+    ).take(5).toList(growable: false);
 
     if (recommended.isEmpty) {
       return const SizedBox.shrink();
@@ -524,16 +543,16 @@ class _HomeScreenState extends State<HomeScreen> {
       currentWeight: currentWeight,
       targetWeight: targetWeight,
     );
-    final currentMood = currentMoodType;
-    final moodColor = Color(
-      MoodTypeConfig.colorValues[currentMood] ??
-        MoodTypeConfig.colorValues[MoodType.neutral]!,
-    );
-    final moodLabel = MoodTypeConfig.displayLabels[currentMood] ??
-      (customerProvider.currentMoodType?.name ?? 'neutral');
     final recommendedTitle = currentMood == null
         ? 'Recommended for you'
-        : 'Recommended for your $moodLabel mood';
+        : 'Recommended for your ${MoodTypeConfig.displayLabels[currentMood] ?? currentMood.name} mood';
+    final moodColor = Color(
+      MoodTypeConfig.colorValues[currentMood] ??
+          MoodTypeConfig.colorValues[MoodType.neutral]!,
+    );
+    final moodLabel = MoodTypeConfig.displayLabels[currentMood] ??
+        currentMood?.name ??
+        'neutral';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -589,7 +608,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 return;
               }
               unawaited(
-                customerProvider.setUserMood(
+                  provider.setMood(
                   mood,
                   confidence: confidence,
                   source: source,
@@ -611,11 +630,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (!mounted || selectedMood == null) {
                   return;
                 }
-
-                await context.read<CustomerProvider>().setUserMood(
-                  selectedMood,
-                  source: MoodSource.manual,
-                );
               },
               child: Container(
                 width: double.infinity,
@@ -660,7 +674,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: (customerProvider.moodSource == MoodSource.voice)
+                                    color: (provider.moodSource == MoodSource.voice)
                                       ? Colors.purple.withValues(alpha: 0.10)
                                       : Colors.grey.withValues(alpha: 0.10),
                                   borderRadius: BorderRadius.circular(10),
@@ -669,22 +683,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
-                                      customerProvider.moodSource == MoodSource.voice
+                                      provider.moodSource == MoodSource.voice
                                           ? Icons.mic
                                           : Icons.touch_app,
                                       size: 10,
-                                      color: customerProvider.moodSource == MoodSource.voice
+                                      color: provider.moodSource == MoodSource.voice
                                           ? Colors.purple
                                           : Colors.grey,
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
-                                      customerProvider.moodSource == MoodSource.voice
+                                      provider.moodSource == MoodSource.voice
                                           ? 'Voice'
                                           : 'Manual',
                                       style: TextStyle(
                                         fontSize: 10,
-                                        color: customerProvider.moodSource == MoodSource.voice
+                                        color: provider.moodSource == MoodSource.voice
                                             ? Colors.purple
                                             : Colors.grey,
                                       ),
@@ -737,7 +751,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             ? meal['mealName'].toString().trim()
                             : 'Meal';
                     final price = meal['price']?.toString() ?? '--';
-                    final imageUrl = meal['mealPicture']?.toString();
                     final calories = meal['calories'] is num
                         ? (meal['calories'] as num).round()
                         : int.tryParse(meal['calories']?.toString() ?? '');
@@ -773,21 +786,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                       child: AspectRatio(
                                         aspectRatio: 16 / 9,
-                                        child: imageUrl != null && imageUrl.isNotEmpty
-                                            ? Image.network(
-                                                imageUrl,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error, stackTrace) => Container(
-                                                  color: _defaultColor.primaryColor
-                                                      .withValues(alpha: 0.1),
-                                                  child: const Icon(Icons.restaurant, color: Colors.grey),
-                                                ),
-                                              )
-                                            : Container(
-                                                color: _defaultColor.primaryColor
-                                                    .withValues(alpha: 0.1),
-                                                child: const Icon(Icons.fastfood),
-                                              ),
+                                        child: MealImage(
+                                          meal: meal,
+                                          fit: BoxFit.cover,
+                                        ),
                                       ),
                                     ),
                                     if (badge != null)

@@ -4,6 +4,7 @@ import 'package:diet_app/components/loading.dart';
 import 'package:diet_app/components/profile/bmi_guage.dart';
 import 'package:diet_app/components/profile/profile_card.dart';
 import 'package:diet_app/firebase/firebase_storage.dart';
+import 'package:diet_app/providers/chef_provider.dart';
 import 'package:diet_app/providers/customer_provider.dart';
 import 'package:diet_app/providers/user_provider.dart';
 import 'package:diet_app/utilities/constants.dart';
@@ -452,6 +453,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _handleLogout() async {
     setState(() => loading = true);
+    context.read<CustomerProvider>().reset();
+    context.read<CheffProvider>().reset();
     try {
       await context.read<UserIdProvider>().logout();
     } catch (e) {

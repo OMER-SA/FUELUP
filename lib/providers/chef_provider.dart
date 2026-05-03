@@ -31,6 +31,14 @@ class CheffProvider with ChangeNotifier {
 
   bool get chefHasAddress => _address != null;
 
+  void reset() {
+    _phoneNumber = null;
+    _kitchenName = null;
+    _address = null;
+    _profilePicture = null;
+    notifyListeners();
+  }
+
   Future<void> setKitchenName({
     required String kitchenName,
     required String cheffId,

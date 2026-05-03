@@ -120,14 +120,14 @@ class _KitchenOrdersScreenState extends State<KitchenOrdersScreen> {
                   width: 120,
                   height: 120,
                   decoration: BoxDecoration(
-                      image: order['mealPicture'] != null
+                      image: (order['mealPicture'] as String? ?? '').isNotEmpty
                           ? DecorationImage(
-                              image: NetworkImage(order['mealPicture']),
+                              image: NetworkImage(order['mealPicture'] as String),
                               fit: BoxFit.cover)
                           : null,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: defaultColors.greyColor)),
-                  child: order['mealPicture'] == null
+                  child: (order['mealPicture'] as String? ?? '').isEmpty
                       ? Icon(Icons.fastfood,
                           size: 60, color: colors.primaryColor)
                       : null,

@@ -1,4 +1,4 @@
-import 'package:diet_app/components/checkout/payment_error_dialog.dart';
+import 'package:diet_app/screens/customer/cart/payment_screen.dart';
 import 'package:diet_app/components/loading.dart';
 import 'package:diet_app/firebase/db_service.dart';
 import 'package:diet_app/firebase/realtime_database.dart';
@@ -228,7 +228,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             backgroundColor: defaultColors.primaryColor,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
-                          onPressed: _onPlaceOrder,
+                          onPressed: () {
+                            if (!_formKey.currentState!.validate()) return;
+                            final total = cartProvider.getSubTotal();
+                            final summary = cartProvider.cartItems.value
+                                .map((i) => '${i.name} x${i.quantity}')
+                                .join(', ');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PaymentScreen(
+                                  totalAmount: total,
+                                  orderSummary: summary,
+                                  onPaymentSuccess: () async {
+                                    Navigator.pop(context);
+                                    await Future.delayed(
+                                      const Duration(milliseconds: 300),
+                                    );
+                                    if (mounted) _submitOrder();
+                                  },
+                                ),
+                              ),
+                            );
+                          },
                           child: const Text('Place Order',
                               style:
                                   TextStyle(fontSize: 18, color: Colors.white)),
@@ -294,96 +316,75 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  void _onPlaceOrder() async {
+  Future<void> _submitOrder() async {
     final cartProvider = Provider.of<CartProvider>(context, listen: false);
     final userProvider = Provider.of<UserIdProvider>(context, listen: false);
 
-    if (_formKey.currentState!.validate()) {
-      if (_selectedPaymentMethod == null) {
-        setState(() {
-          paymentMethodError = true;
-        });
-        return;
-      }
+    setState(() => isLoading = true);
+    _formKey.currentState!.save();
 
-      if (_selectedPaymentMethod == "Card Payment") {
-        if (!_creditCardFormKey.currentState!.validate()) {
-          return;
-        } else {
-          setState(() {
-            isLoading = true;
+    try {
+      int placedCount = 0;
+      for (var item in cartProvider.cartItems.value) {
+        final mealData = await _dbService.getMealById(item.recipieId);
+        if (mealData == null) {
+          debugPrint('Meal ${item.recipieId} no longer exists — skipping');
+          continue;
+        }
+        final chefData = await _dbService.getCheff(item.kitchenId);
+        final customerData =
+            await _dbService.getCustomer(userProvider.getUuid.toString());
+
+        await _realDataBaseService.addOrder(
+          customerId: userProvider.getUuid.toString(),
+          kitchenId: item.kitchenId,
+          address: _addressController.text,
+          mealId: item.recipieId,
+          mealPicture: mealData['mealPicture'] ?? '',
+          quantity: item.quantity,
+          orderDate: DateTime.now().toString(),
+          recipe: item.recipie,
+          kitchenAddress: chefData['address'] ?? '',
+          kitchenName: chefData['kitchenName'],
+          mealName: mealData['mealName'],
+          price: mealData['price'],
+          customerName:
+              "${customerData['firstName']} ${customerData['lastName']}",
+          originalRecipe: mealData['recipie'],
+        );
+
+        try {
+          await callBackendEndpoint('/notifyChef', {
+            'chefId': item.kitchenId,
+            'title': 'New Order',
+            'body': 'A Customer placed an order of ${item.name}',
           });
-          try {
-            await Future.delayed(const Duration(seconds: 2));
-            if (mounted) {
-              await paymentMethodErrorDialog(context);
-            }
-          } catch (e) {
-            //
-          } finally {
-            setState(() {
-              isLoading = false;
-            });
-          }
-          return;
+        } catch (e) {
+          debugPrint('Error notifying chef: $e');
         }
+        placedCount++;
       }
 
-      setState(() {
-        isLoading = true;
-        paymentMethodError = false; // Reset error flag if method is selected
-      });
-
-      _formKey.currentState!.save();
-
-      try {
-        for (var item in cartProvider.cartItems.value) {
-          final mealData = await _dbService.getMealById(item.recipieId);
-          final chefData = await _dbService.getCheff(item.kitchenId);
-          final customerData =
-              await _dbService.getCustomer(userProvider.getUuid.toString());
-
-          // Add order to the real-time database
-          await _realDataBaseService.addOrder(
-            customerId: userProvider.getUuid.toString(),
-            kitchenId: item.kitchenId,
-            address: _addressController.text,
-            mealId: item.recipieId,
-            mealPicture: mealData!['mealPicture'] ?? '',
-            quantity: item.quantity,
-            orderDate: DateTime.now().toString(),
-            recipe: item.recipie,
-            kitchenAddress: chefData['address'] ?? '',
-            kitchenName: chefData['kitchenName'],
-            mealName: mealData['mealName'],
-            price: mealData['price'],
-            customerName:
-                "${customerData['firstName']} ${customerData['lastName']}",
-            originalRecipe: mealData['recipie'],
-          );
-
-          // Notify chef via the custom backend
-          try {
-            await callBackendEndpoint('/notifyChef', {
-              'chefId': item.kitchenId,
-              'title': 'New Order',
-              'body': 'A Customer placed an order of ${item.name.toString()}',
-            });
-          } catch (e) {
-            debugPrint('Error notifying chef: $e');
-            // Non-critical: order was still placed even if notification fails
-          }
-        }
-
+      if (placedCount > 0) {
         _processOrder(cartProvider);
-      } catch (e) {
-        debugPrint("Error placing order: $e");
-        // Handle any other error scenarios here
-      } finally {
-        setState(() {
-          isLoading = false;
-        });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'None of your cart items are currently available. '
+                'Please remove them and try again.',
+              ),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
       }
+    } catch (e) {
+      debugPrint('Error placing order: $e');
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 

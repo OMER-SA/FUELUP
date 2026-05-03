@@ -6,6 +6,7 @@ import 'package:diet_app/providers/customer_provider.dart';
 import 'package:diet_app/utilities/alergies_model.dart';
 import 'package:diet_app/utilities/bmi_meal_filter.dart';
 import 'package:diet_app/utilities/toast.dart';
+import 'package:diet_app/widgets/meal_image.dart';
 import 'package:flutter/material.dart';
 import 'package:diet_app/utilities/constants.dart';
 import 'package:flutter_flip_card/flutter_flip_card.dart';
@@ -232,19 +233,10 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                 // Meal Image
                 AspectRatio(
                   aspectRatio: 16 / 9,
-                  child: widget.meal['mealPicture'] != null
-                      ? Image.network(
-                          widget.meal['mealPicture'],
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            color: defaultColor.primaryColor.withValues(alpha: 0.1),
-                            child: const Icon(Icons.restaurant, size: 80),
-                          ),
-                        )
-                      : Container(
-                          color: defaultColor.primaryColor.withValues(alpha: 0.1),
-                          child: const Icon(Icons.fastfood, size: 80),
-                        ),
+                  child: MealImage(
+                    meal: widget.meal,
+                    fit: BoxFit.cover,
+                  ),
                 ),
                 // Allergen Warning Banner
                 _buildAllergenWarningBanner(),

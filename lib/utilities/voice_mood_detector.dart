@@ -297,6 +297,9 @@ class VoiceMoodDetector {
         List<double>.filled(_expectedClasses, 0.0, growable: false),
       ];
 
+      // Yield to the event loop so the UI can render the processing state
+      // before this synchronous call blocks the main thread.
+      await Future.delayed(Duration.zero);
       interpreter.run(input, output);
 
       final probabilities = List<double>.from(output.first);
@@ -308,16 +311,19 @@ class VoiceMoodDetector {
         );
       }
 
-      final sum = probabilities.reduce((a, b) => a + b);
+      final rawSum = probabilities.reduce((a, b) => a + b);
+      final normalizedProbs = rawSum > 0
+          ? probabilities.map((p) => p / rawSum).toList()
+          : probabilities;
       debugPrint(
         'Raw probs: neutral=${probabilities[0].toStringAsFixed(3)} '
         'happy=${probabilities[1].toStringAsFixed(3)} '
         'surprise=${probabilities[2].toStringAsFixed(3)} '
         'unpleasant=${probabilities[3].toStringAsFixed(3)} '
-        'sum=${sum.toStringAsFixed(3)}',
+        'sum=${rawSum.toStringAsFixed(3)}',
       );
 
-      final bestIndex = _argMax(probabilities);
+      final bestIndex = _argMax(normalizedProbs);
       if (bestIndex < 0 || bestIndex >= MoodConfig.serModelLabels.length) {
         return const MoodResult(
           mood: MoodType.neutral,
@@ -328,7 +334,7 @@ class VoiceMoodDetector {
 
       final label = MoodConfig.serModelLabels[bestIndex];
       final mood = MoodTypeConfig.fromVoiceLabel(label);
-      final confidence = probabilities[bestIndex].clamp(0.0, 1.0);
+      final confidence = normalizedProbs[bestIndex].clamp(0.0, 1.0);
 
       _lastDetectedMood = mood;
       _lastConfidence = confidence;
